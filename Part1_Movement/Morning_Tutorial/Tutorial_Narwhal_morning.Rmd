@@ -370,6 +370,8 @@ The primary learning objectives of this part are:
 2. Checking model fit
 3. Determining number of states to use
 
+## Fitting the Model
+
 <p style='text-align: justify;'> 
 Our data is ready to use, we can fit the HMM. For this we use
 the function `fitHMM`. This is where we need to make many of our
@@ -378,7 +380,33 @@ one of the arguments of the function. The minimum arguments `fitHMM`
 requires are: `fitHMM(data, nbState, dist, Par0)`. 
 </p> 
 
-```{r voided_crawl_HMM_fitHMM, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+<p style='text-align: justify;'> 
+First, when we fit a HMM, we need to decide the number of behavioural states we are going to model. To start simple, we will only use two behavioural states. These could be, for example, representing one behaviour with fast and directed movement (e.g., travelling) and one behaviour with a more slow and tortuous movement (e.g., residing). This mean that the argument `nbState` will be set to 2. Second, we need to decide whether we make the transition probabilities between the behavioural states dependent on covariates. Here, we will start simple and we will not use covariates. Third, we need to select the distribution we will use to model the step lengths and the one we will use to model the turning angles. For now, we will use the gamma distribution for the step length and the von Mises for the turning angles. This means that the argument dist will be set to: list(step="gamma", angle="vm"). Note that dist should be a list with an item for each data stream columns in the data that we are modelling (so here the column step and angle). The gamma distribution is strictly positive (i.e., it does not allow for 0s). If you have step lengths that are exactly zero in your data set, you need to use zero-inflated distributions. But in this case, we have no zeros.
+</p> 
+
+<p style='text-align: justify;'> 
+By default, `fitHMM` will set the argument `estAngleMean` to NULL, which means that we assume that the mean angle is 0 for both behaviours (i.e., the animal has a tendency to continue in the same direction) and that only the angle concentration parameters differ. The concentration parameters control the extent to which the animal continues forward versus turn. Doing so reduces the number of parameters to estimate. These are all very important decisions that you must make when you construct your model. In addition, we need to specify initial values for the parameters to estimate. The HMMs are fit using maximum likelihood estimate (MLE) with a numerical optimizer. An unfortunate aspect of fitting models using numerical optimizers, is that, to be able to explore the parameter space and find the best parameter values for the model, the optimizer needs to start somewhere. You need to decide where it starts. Unfortunately, choosing bad starting values can result in parameter estimates that are not the MLE, but just a local maximum. To choose your initial parameter you can take a quick peak at the data (e.g., using the plots below) and use some general biological information. For example, it’s common for animals to have one behaviour with long step lengths and small turning angles and one behaviour with short step lengths and larger turning angles. From the plots below (note that we can simply use plot on our data), it looks like the animal has step lengths that are close to 100 and 600. There could be a third behaviour with larger step lengths. But for now we will consider only two.
+</p> 
+
+```{r inits, warning=FALSE,attr.source = ".numberLines"}
+plot(prep_tracks_gps_crw_NAgaps)
+```
+
+```{r inits2, warning=FALSE,attr.source = ".numberLines"}
+plot(prep_tracks_gps_crw_NAgaps$step ~
+       prep_tracks_gps_crw_NAgaps$time, ty = "l", ylab = "Step length",
+     xlab = "Date", las = 1)
+abline(h = 100, col = rgb(1, 0, 0, 0.5))
+abline(h = 600, col = rgb(1, 0, 0, 0.5))
+```
+
+
+<p style='text-align: justify;'> 
+So let’s choose 100 and 600 for the means step lengths and use half those values for the standard deviations. The turning angles are either very close to 0 or pretty spread from $-\pi/2$ to $\pi/2$. High concentration parameter values ($\kappa$, said kappa) mean that the animal has a tendency to move in the same direction. Values close to 0 mean that the turning angle distribution is almost uniform (the animal turns in all directions). Note that $\kappa$
+ cannot be exactly 0, so let’s choose 0.1 and 1.
+</p> 
+
+```{r inits3, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 # define states (optional)
 stateNames <- c("resident", "travel")
 nbState <- length(stateNames)
@@ -386,20 +414,210 @@ nbState <- length(stateNames)
 dist <- list(step = "gamma", angle = "vm")
 
 # Setting up the starting values
-mu0 <- c(50, 500) # Mean step length
-sigma0 <- mu0 # SD of the step length
+mu0 <- c(100, 600) # Mean step length
+sigma0 <- mu0/2 # SD of the step length
 kappa0 <- c(0.1, 1) # Turn angle concentration parameter
 # combine starting parameters 
 Par0 <- list(step = c(mu0, sigma0), angle = kappa0)
+``` 
 
+<p style='text-align: justify;'> 
+Ok, were are ready. Let’s fit the HMM and look at the parameter estimates 
+</p>
 
-set.seed(1)
+```{r fitHMM, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 # Fit a 2 state HMM
 HMM_gps_crw_NAgaps <- fitHMM(prep_tracks_gps_crw_NAgaps, 
                              stateNames = stateNames, nbState = 2, 
                              dist = dist, Par0 = Par0)
+
+# Let's look at parameter estimates
+HMM_gps_crw_NAgaps
+```
+
+
+<p style='text-align: justify;'> 
+We can also plot them 
+</p>
+
+```{r plotHMM, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 # plot outputs (for one animal)
 plot(HMM_gps_crw_NAgaps, ask = FALSE, animals = "T172062")
-plotPR(HMM_gps_crw_NAgaps)
 ```
+
+
+<p style='text-align: justify;'> 
+Based on the mean step parameters, it looks like the first behavioural state (resident) has smaller step lengths compared to state 2. This is particularly easy to see in the step histogram (first figure), where the estimated distribution for each state is overlaid on top of the observed step length frequencies. The turning angle distributions of second state (travel) indicates much more direct movement. The concentration parameter is significantly bigger than that of state 1. Looking at the track we can see the estimated transitions between states. 
+</p>
+
+## Identifying Behavioural States
+
+<p style='text-align: justify;'> 
+Maybe looking at the state sequence in more detail will help us understand. Actually, we are interested in identifying when an animal is in each of the behavioural states (here when the animal is in state 1 vs state 2), something we call state decoding. To do so, we can use the function `viterbi`, which uses the Viterbi algorithm to produce the most likely sequence of states according to your fit model and data.
+</p>
+
+```{r viterbi, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+# Apply the Viterbi algorithm using your fited model object
+dec_States <- viterbi(HMM_gps_crw_NAgaps)
+# Let's look at predicted states of the first 20 time steps
+head(dec_States, 20)
+```
+
+```{r statecounts, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+# How many locations in each state do we have?
+table(dec_States)
+```
+
+<p style='text-align: justify;'> 
+In many cases, it is more interesting to get the probability of being in each state rather than the most likely state. To do so, you can use the function `stateProbs`, which returns a matrix of the probability of being in each state for each time step.
+</p>
+
+```{r stateprobs, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+# Calculate the probability of being in each state
+statep <- stateProbs(HMM_gps_crw_NAgaps)
+# Let's look at the state probability matrix
+head(statep)
+```
+
+<p style='text-align: justify;'> 
+We can see here the probability of being in both states for the first 6 time steps. Here, the probability of being in state 1 is really high for these steps, but that may not always be the case. Sometimes you might have values closer to 0.5, which would indicate that for that time step, it’s hard to identify which state you are in (i.e., which step length and turning angle distributions fit best).
+
+You can plot the results from both of these functions using the function `plotState`
+</p>
+
+```{r plotstates, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+plotStates(HMM_gps_crw_NAgaps)
+```
+
+## Checking the Model
+
+<p style='text-align: justify;'> 
+The first thing we need to look into is whether the parameter estimates are reliable. As mentioned above, the initial parameter values can affect the estimating procedures. So it’s always good to check if you get similar results with different starting values. Here, we will make the starting values of the two behavioural states closer to one another.
+</p>
+
+```{r inits_check, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+
+# Setting up the starting values
+mu2 <- c(400, 600) # Mean step length
+sigma2 <- mu2/2 # SD of the step length
+kappa2 <- c(1, 1) # Turn angle concentration parameter
+# combine starting parameters 
+Par2 <- list(step = c(mu2, sigma2), angle = kappa2)
+
+# Fit the same 2 state HMM
+HMM_gps_crw_NAgaps2 <- fitHMM(prep_tracks_gps_crw_NAgaps, 
+                             stateNames = stateNames, nbState = 2, 
+                             dist = dist, Par0 = Par0)
+
+
+``` 
+
+<p style='text-align: justify;'> 
+Let’s compare the two results. First let’s look at which of the two has the lowest negative log likelihood (equivalent of highest log likelihood, so closer to the real MLE). Let’s look also at the parameter estimates they each returned.
+</p>
+
+```{r comp, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+
+# Negative log likelihood
+c(original = HMM_gps_crw_NAgaps$mod$minimum, new = HMM_gps_crw_NAgaps2$mod$minimum)
+
+# Parameter estimates
+cbind(HMM_gps_crw_NAgaps$mle$step, HMM_gps_crw_NAgaps2$mle$step)
+
+cbind(HMM_gps_crw_NAgaps$mle$angle, HMM_gps_crw_NAgaps2$mle$angle)
+
+cbind(HMM_gps_crw_NAgaps$mle$gamma, HMM_gps_crw_NAgaps2$mle$gamma)
+``` 
+
+<p style='text-align: justify;'> 
+Looks like they both returned very close values for everything. So that’s good! The function `fitHMM` also has the argument `retryFits` which perturbs the parameter estimates and retries fitting the model. The argument is used to indicate the number of times you want perturb the parameters and retry fitting the model (you can choose the size of the perturbation by setting the argument `retrySD)`.
+
+Let’s try (this will take a few minutes).
+</p>
+
+```{r retryfits, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+
+# Fit the same 2-state HMM with retryFits
+# This is a random pertubation, so setting the seed to get the same results
+set.seed(29)
+HMM_RF <- fitHMM(prep_tracks_gps_crw_NAgaps,
+                    nbState = 2,
+                    dist=list(step="gamma", angle="vm"),
+                    Par0 = list(step=c(mu2, sigma2), angle=kappa2),
+                    retryFits=10)
+``` 
+
+<p style='text-align: justify;'> 
+Let’s compare the results again.
+</p>
+
+```{r comp2, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+
+# Negative log likelihood
+c(original = HMM_gps_crw_NAgaps$mod$minimum, new = HMM_gps_crw_NAgaps2$mod$minimum,
+  retryFits = HMM_RF$mod$minimum)
+
+# Parameter estimates
+cbind(HMM_gps_crw_NAgaps$mle$step, HMM_gps_crw_NAgaps2$mle$step, HMM_RF$mle$step)
+cbind(HMM_gps_crw_NAgaps$mle$angle, HMM_gps_crw_NAgaps2$mle$angle, HMM_RF$mle$angle)
+cbind(HMM_gps_crw_NAgaps$mle$gamma, HMM_gps_crw_NAgaps2$mle$gamma, HMM_RF$mle$gamma)
+
+``` 
+
+<p style='text-align: justify;'> 
+Still looking very similar!
+
+`momentuHMM` has functions to help selecting initial parameters for complex models. However, these functions rely on the user choosing initial parameter values for a simple model like the one we just explored.
+</p>
+
+## Pseudo-residuals
+
+<p style='text-align: justify;'> 
+
+We fitted a model to the data, looks like the parameter estimates are reliable, and we can get state probabilities, but is this a good model for our data? Can we use the model results? The best way to investigate model fit is through pseudo-residuals. Pseudo-residuals are a type of model residuals that account for the interdependence of observations. They are calculated for each of the time series (e.g., you will have pseudo-residuals for the step length time series and for the turning angle time series). If the fit model is appropriate, the pseudo-residuals produced by the functions `pseudoRes` should follow a standard normal distribution. You can look at pseudo-residuals directly via the function `plotPR`, which plots the pseudo-residual times-series, the qq-plots, and the autocorrelation functions (ACF).
+</p>
+
+```{r plotpr, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+
+plotPR(HMM_gps_crw_NAgaps)
+
+``` 
+
+<p style='text-align: justify;'> 
+Both the qq-plot and the ACF plot indicate that the model does not fit the step length time series particularly well. The ACF indicates that there is severe autocorrelation remaining in the time series, even after accounting for the persistence in the underlying behavioural states.
+
+This could indicate that there are more hidden behavioural states. Let’s try a 3-state HMMs.
+</p>
+
+```{r 3states, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+
+# Setting up the starting values
+mu3 <- c(100, 600, 1000) # Mean step length
+sigma3 <- mu3/2 # SD of the step length
+kappa3 <- c(0.1, 1, 1) # Turn angle concentration parameter
+# combine starting parameters 
+Par3 <- list(step = c(mu3, sigma3), angle = kappa3)
+
+# Fit the same 3 state HMM
+HMM_gps_crw_NAgaps3 <- fitHMM(prep_tracks_gps_crw_NAgaps, 
+                              nbState = 3, 
+                             dist = dist, Par0 = Par3)
+
+plot(HMM_gps_crw_NAgaps3)
+``` 
+
+<p style='text-align: justify;'> 
+If we look at the pseudo-residuals
+</p>
+
+```{r plotpr2, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+
+plotPR(HMM_gps_crw_NAgaps3)
+
+``` 
+
+<p style='text-align: justify;'> 
+It's better. Not perfect, but less unexplained autocorrelation, especially in the step lengths. If we look at the step length distribution, we can see that we have still our state with really small steps (maybe resting?), a state with steps of medium size (maybe foraging?), and a state with large steps (maybe travelling?). Looking at the track, it does look like the movement in state 2 is more tortuous and in focal areas, while the movement in state 3 is very directed and span larger areas.
+</p>
+
 
