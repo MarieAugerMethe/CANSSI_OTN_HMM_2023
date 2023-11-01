@@ -41,15 +41,15 @@ paper:
 The primary learning objectives in this first tutorial are to:
 
 
-1. Select an appropriate resolution for the data ($\approx 15$ min)
-2. Handle missing locations ($\approx 15$ min)
-3. Fit simple HMMs using `momentuHMM` ($\approx 30$ min)
-4. Checking model fit ($\approx 30$ min)
-5. Determining number of states to use  ($\approx 30$ min)
-6. Incorporating and interpreting covariates on behaviour transition probabilities  ($\approx 30$ min)
-7. Incorporating covariates on emission probabilities ($\approx 30$ min)
+1. Select an appropriate resolution for the data
+2. Handle missing locations
+3. Fit simple HMMs using `momentuHMM`
+4. Checking model fit
+5. Determining number of states to use 
+6. Incorporating and interpreting covariates on behaviour transition probabilities
+7. Incorporating covariates in the observation model
 
-## Setup and data preparation
+## Setup and data description
 <p style='text-align: justify;'>
 First, let's load the packages that we will need to complete the
 analyses. Of course you need to have them installed first.</p>
@@ -74,33 +74,28 @@ setwd("Morning_Tutorial")
 ```
 <p style='text-align: justify;'> 
 
-One of the main features of the data used with HMMs is that locations
-are taken at regular time steps and that there are negligible position
+HMMs assume that locations are taken at regular time steps and that there is negligible position
 error. For example, HMMs are adequate to use on GPS tags that take
 locations at a set temporal frequency (e.g., every $2$ hrs). Without
-reprocessing, HMMs are not particularly good for irregular times series
+reprocessing, HMMs are not suitable for irregular times series
 of locations or locations with large measurement error (e.g., you would
 need to preprocess Argos data before applying HMMs).
 </p>
 <p style='text-align: justify;'> 
 Unfortunately, movement of aquatic
 species is rarely taken at regular time intervals and without
-measurement error. For example, the data set we will work on, is the
-movement track of three narwhals tagged with a Fastlock GPS tag for two weeks, provided by Dr. Marianne Marcoux.
+measurement error. The data set we will work on, is the
+movement track of three narwhals tagged with a Fastlock GPS tag for two weeks, provided by Dr. Marianne Marcoux.For simplicity, we only examine the GPS data from two weeks in August 2017 for three individuals. We only use the fastloc GPS data, so we don't have to deal with location error.
 </p>
 # Import data and initial data processing
 <p style='text-align: justify;'> 
-First, let's import the narwhal movement data. For simplicity, we only examine the GPS data from two weeks in August 2017 for three individuals.
+First, let's import the narwhal movement data and convert the time column to an appropriate date format.
 </p>
 
 ```{r import_tracks, warning=FALSE, attr.source = ".numberLines"}
 tracks_gps <- read.csv("data/tracks_gps.csv")%>%
   mutate(time = ymd_hms(time))
 ```
-<p style='text-align: justify;'>
-
-The function ymd_hms() transforms dates stored as character or numeric vectors to POSIXct objects, that are useful and commonly used in ecology.
-</p>
 <p style='text-align: justify;'>
 The data we obtain is often quite messy with some records missing information and other records duplicated. We can filter records to keep only complete location data using `!is.na(x) & !is.na(y)`. To remove duplicate records (same time, location, and location class), we will use the `lag` function from `dplyr`, which will use the value from the previous row so that we can compare to the current row.
 </p>
@@ -114,10 +109,7 @@ tracks_gps <- tracks_gps %>%
 ```
 
 <p style='text-align: justify;'> 
-For the main tutorial, since we only use the fastloc GPS data, we don't have to deal with location error.
-</p>
-<p style='text-align: justify;'> 
-Now we will plot the tracks with a new package `ggOceanMaps` that will show the tracks on the map of the Earth. To do so, we need to choose the limits of the map.  We set them to the limits in Longitude and Latitude of our data (`bbox`below). This package is convenient since it deals with Longitude and Latitude, and there is no need to transform our dataset (other methods usually requires to transform the dataset into an `sf` object). In the `crs` argument, we define the coordinate reference system of the original data (in this case WGS84, which is defined by the EPSG code `4326`).
+Now we will plot the tracks with a new package `ggOceanMaps` that will show the tracks on the map of the Earth, with limits set in Longitude and Latitude of our data (`bbox`below). This package is convenient since it deals with Longitude and Latitude, and there is no need to transform our dataset into an `sf` object. In the `crs` argument, we define the coordinate reference system of the original data (in this case WGS84, which is defined by the EPSG code `4326`).
 </p>
 
 ```{r plot_gps_data, warning=FALSE, attr.source = ".numberLines"}
@@ -128,32 +120,17 @@ df <-  cbind.data.frame(Lon = c(tracks_gps$x),Lat = c(tracks_gps$y), ID = c(trac
 bbox <-c(min(tracks_gps$x),max(tracks_gps$x),min(tracks_gps$y),max(tracks_gps$y))
 
 #Plot the data, with background map
-basemap(limits = c(bbox)) + 
+basemap(limits = c(bbox), bathymetry = TRUE) + 
   geom_spatial_path(data=df, aes(x = Lon, y = Lat,colour=factor(ID)), crs = 4326)+
   ggtitle("Movement data of the narwhals")
 
 ```
-<p style='text-align: justify;'>
-
-We can also add the bathymetry to the map, to get a better sense of the movement by adding the argument `bathymetry= TRUE` in the basemap function. To do so, we will need to dezoom.
-</p>
-```{r plot_gps_data_bathymetry, warning=FALSE, attr.source = ".numberLines"}
-df <-  cbind.data.frame(Lon = c(tracks_gps$x),Lat = c(tracks_gps$y), ID = c(tracks_gps$ID))
-bbox <-c(min(tracks_gps$x)-5,max(tracks_gps$x)+5,min(tracks_gps$y)-1,max(tracks_gps$y)+1)
-
-#Plot the data with bathymetry, replace the code by the correct argument
-basemap(limits = c(bbox),bathymetry= TRUE) + 
-  geom_spatial_path(data=df, aes(x = Lon, y = Lat,colour=factor(ID)), crs = 4326)+
-  ggtitle("Movement data of the narwhals")
-
-```
-
 
 
 # Selecting a time interval for the HMM
 
 <p style='text-align: justify;'> 
-The classic HMM assumes the observations are collected in discrete time and that there is no missing data in the predictor variables. There are two key decisions we must make, (1) the temporal resolution to use, and (2) how to address data gaps. The desired resolution depends predominantly on the biological question you are asking as different behaviours and biological processes occur at different spatial and temporal scales (e.g., seasonal migration, daily movement between foraging and resting grounds, and fine scale foraging decisions). Generally, higher resolution data is preferred as it has more information. However, it is possible to have too-high of a resolution wherein information from fine-scale variability drowns out the signal from coarse-scale patterns of interest (e.g., seasonal migration). In this case, we will be linking the movement data with high resolution (75 s) dive data to look at finer-scale behaviours (on the order of a few hours). My rule of thumb, is that you want 3-50 data points per behaviour. For behaviours spanning several hours, that roughly corresponds to a desired resolution between 2 min and 60 min. </p>
+An HMM assumes the observations are collected in discrete time and that there is no missing data in the predictor variables. When the data is irregular, there are two key decisions we must make, (1) the temporal resolution to use, and (2) how to address data gaps. The desired resolution depends predominantly on the biological question you are asking, as different behaviours and biological processes occur at different spatial and temporal scales (e.g., seasonal migration, daily movement between foraging and resting grounds, and fine scale foraging decisions). Generally, higher resolution data is preferred as it has more information. However, it is possible to have too-high of a resolution wherein information from fine-scale variability drowns out the signal from coarse-scale patterns of interest (e.g., seasonal migration). In this case, we will be linking the movement data with high resolution (75 s) dive data to look at finer-scale behaviours (on the order of a few hours). My rule of thumb, is that you want 3-50 data points per behaviour. For behaviours spanning several hours, that roughly corresponds to a desired resolution between 2 min and 60 min. </p>
 
 
 <p style='text-align: justify;'> 
@@ -280,7 +257,7 @@ It is now possible to now to fit an HMM on the `tracks_gps_crw` dataset. We will
 
 ## Voiding data gaps {#void-gaps}
 <p style='text-align: justify;'> 
-One strategy to address data gaps is to leaving the data streams (i.e., step length and turning angle) as `NAs`. For my own work, I have typically voided sections with $>6$ missing locations. The maximum size of a gap to allow depends on the frequency of the missing data, frequency of locations, study species, and behaviours of interest. 
+One strategy to address data gaps is to leave the data streams (i.e., step length and turning angle) as `NAs`. For my own work, I have typically voided sections with $>6$ missing locations. The maximum size of a gap to allow depends on the frequency of the missing data, frequency of locations, study species, and behaviours of interest. 
 </p>
 <p style='text-align: justify;'> 
 Voiding gaps is particularly useful for moderate and large gaps, however, it may often be the best option for small gaps as well. The only catch is that although HMMs can allow for missing data in the state-dependent observation data (e.g., step length and turning angle), HMMs cannot have missing data if there are covariates on the transition probability (for example, if there was an effect of bathymetry on state probability). 
@@ -362,7 +339,7 @@ Another strategy to deal with larger gaps is to segment the tracks with a new in
 
 <p style='text-align: justify;'> 
 In the next part of this tutorial, we will explore how to fit hidden Markov models
-(HMMs) to the `prep_tracks_gps_crw_NAgaps` dataset in the R package `momentuHMM` >.
+(HMMs) to the `prep_tracks_gps_crw_NAgaps` dataset in the R package `momentuHMM`.
 </p> 
 
 # Fit HMM to data 
@@ -376,24 +353,24 @@ The primary learning objectives of this part are:
 ## Fitting the Model
 
 <p style='text-align: justify;'> 
-Our data is ready to use, we can fit the HMM. For this we use
-the function `fitHMM`. This is where we need to make many of our
+Our data is ready to use, and are almost ready to fit the HMM (via
+the function `fitHMM`). This is where we need to make many of our
 modelling decisions and most of these decisions will be associated with
 one of the arguments of the function. The minimum arguments `fitHMM`
 requires are: `fitHMM(data, nbState, dist, Par0)`. 
 </p> 
 
+1. When we fit a HMM, we need to decide the number of behavioural states we are going to model. To start simple, we will only use two behavioural states. These could be, for example, representing one behaviour with fast and directed movement (e.g., travelling) and one behaviour with a more slow and tortuous movement (e.g., residing). This mean that the argument `nbStates` will be set to $2$.
+
+2. We need to select the distribution we will use to model the step lengths and the one we will use to model the turning angles. For now, we will use the gamma distribution for the step length and the von Mises for the turning angles. These are commonly used distributions, to model movement data.This means that the argument dist will be set to: list(step="gamma", angle="vm"). Note that dist should be a list with an item for each data stream columns in the data that we are modelling (so here the column step and angle). The gamma distribution is strictly positive (i.e., it does not allow for $0$s). If you have step lengths that are exactly zero in your data set, you need to use zero-inflated distributions. But in this case, we have no zeros.
+
+
+3. We need to decide whether we make the transition probabilities between the behavioural states dependent on covariates. Here, we will start simple and we will not use covariates. 
+
+4. We need to select initial values for the parameters to estimate. The HMMs are fit using maximum likelihood estimate (MLE) with a numerical optimizer. An unfortunate aspect of fitting models using numerical optimizers, is that, to be able to explore the parameter space and find the best parameter values for the model, the optimizer needs to start somewhere. You need to decide where it starts. Unfortunately, choosing bad starting values can result in parameter estimates that are not the MLE, but just a local maximum. To choose your initial parameter you can take a quick peak at the data (e.g., using the plots below) and use some general biological information. For example, it’s common for animals to have one behaviour with long step lengths and small turning angles and one behaviour with short step lengths and larger turning angles. From the plots below (note that we can simply use plot on our data), it looks like the animal has step lengths that are close to $100$ and $600$. There could be a third behaviour with larger step lengths. But for now we will consider only two.
+
 <p style='text-align: justify;'> 
-First, when we fit a HMM, we need to decide the number of behavioural states we are going to model. To start simple, we will only use two behavioural states. These could be, for example, representing one behaviour with fast and directed movement (e.g., travelling) and one behaviour with a more slow and tortuous movement (e.g., residing). This mean that the argument `nbStates` will be set to $2$.
-
-Second, we need to decide whether we make the transition probabilities between the behavioural states dependent on covariates. Here, we will start simple and we will not use covariates. 
-
-Third, we need to select the distribution we will use to model the step lengths and the one we will use to model the turning angles. For now, we will use the gamma distribution for the step length and the von Mises for the turning angles. These are commonly used distributions, to model movement data.
-This means that the argument dist will be set to: list(step="gamma", angle="vm"). Note that dist should be a list with an item for each data stream columns in the data that we are modelling (so here the column step and angle). The gamma distribution is strictly positive (i.e., it does not allow for $0$s). If you have step lengths that are exactly zero in your data set, you need to use zero-inflated distributions. But in this case, we have no zeros.
-</p> 
-
-<p style='text-align: justify;'> 
-By default, `fitHMM` will set the argument `estAngleMean` to NULL, which means that we assume that the mean angle is $0$ for both behaviours (i.e., the animal has a tendency to continue in the same direction) and that only the angle concentration parameters differ. The concentration parameters control the extent to which the animal continues forward versus turn. Doing so reduces the number of parameters to estimate. These are all very important decisions that you must make when you construct your model. In addition, we need to specify initial values for the parameters to estimate. The HMMs are fit using maximum likelihood estimate (MLE) with a numerical optimizer. An unfortunate aspect of fitting models using numerical optimizers, is that, to be able to explore the parameter space and find the best parameter values for the model, the optimizer needs to start somewhere. You need to decide where it starts. Unfortunately, choosing bad starting values can result in parameter estimates that are not the MLE, but just a local maximum. To choose your initial parameter you can take a quick peak at the data (e.g., using the plots below) and use some general biological information. For example, it’s common for animals to have one behaviour with long step lengths and small turning angles and one behaviour with short step lengths and larger turning angles. From the plots below (note that we can simply use plot on our data), it looks like the animal has step lengths that are close to $100$ and $600$. There could be a third behaviour with larger step lengths. But for now we will consider only two.
+Note, by default, `fitHMM` will set the argument `estAngleMean` to NULL, which means that we assume that the mean angle is $0$ for both behaviours (i.e., the animal has a tendency to continue in the same direction) and that only the angle concentration parameters differ. The concentration parameters control the extent to which the animal continues forward versus turn. Doing so reduces the number of parameters to estimate. These are all very important decisions that you must make when you construct your model. 
 </p> 
 
 ```{r inits, warning=FALSE,attr.source = ".numberLines"}
@@ -410,7 +387,7 @@ abline(h = 600, col = rgb(1, 0, 0, 0.5))
 
 
 <p style='text-align: justify;'> 
-So let’s choose $100$ and $600$ for the means step lengths and use half those values for the standard deviations. The turning angles are either very close to $0$ or pretty spread from $-\pi/2$ to $\pi/2$. High concentration parameter values ($\kappa$, said kappa) mean that the animal has a tendency to move in the same direction. Values close to 0 mean that the turning angle distribution is almost uniform (the animal turns in all directions). Note that $\kappa$
+Based on visual examination of the data, we might choose our initial paramters to be $100$ and $600$ for the mean step lengths and use half those values for the standard deviations. The turning angles are either very close to $0$ or pretty spread from $-\pi/2$ to $\pi/2$. High concentration parameter values ($\kappa$, said kappa) mean that the animal has a tendency to move in the same direction. Values close to 0 mean that the turning angle distribution is almost uniform (the animal turns in all directions). Note that $\kappa$
 cannot be exactly 0, so let’s choose 0.1 and 1.
 </p> 
 
@@ -430,7 +407,7 @@ Par0 <- list(step = c(mu0, sigma0), angle = kappa0)
 ``` 
 
 <p style='text-align: justify;'> 
-Ok, were are ready. Let’s fit the HMM and look at the parameter estimates 
+Ok, we are ready. Let’s fit the HMM and look at the parameter estimates 
 </p>
 
 ```{r fitHMM, message=FALSE, attr.source = ".numberLines", cache=TRUE}
@@ -445,23 +422,23 @@ HMM_gps_crw_NAgaps
 
 
 <p style='text-align: justify;'> 
-We can also plot them 
+We can also use the `plot` function to plot the outputs. This will show us the estimated state-dependent distributions, and estimated states for each location.  
 </p>
 
 ```{r plotHMM, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 # plot outputs (for one animal)
-plot(HMM_gps_crw_NAgaps, ask = FALSE, animals = "T172062")
+plot(HMM_gps_crw_NAgaps, ask = FALSE)
 ```
 
 
 <p style='text-align: justify;'> 
-Based on the mean step parameters, it looks like the first behavioural state (resident) has smaller step lengths compared to state 2. This is particularly easy to see in the step histogram (first figure), where the estimated distribution for each state is overlaid on top of the observed step length frequencies. The turning angle distributions of second state (travel) indicates much more direct movement. The concentration parameter is significantly bigger than that of state 1. Looking at the track we can see the estimated transitions between states. 
+Based on the mean step length parameters, it looks like the first behavioural state (resident) has smaller step lengths compared to state 2. This is particularly easy to see in the step histogram (first figure), where the estimated distribution for each state is overlaid on top of the observed step length frequencies. The turning angle distributions of second state (travel) indicates much more directed movement, with higher angular concentration. Looking at the track we can see the estimated transitions between states. 
 </p>
 
 ## Identifying Behavioural States
 
 <p style='text-align: justify;'> 
-Maybe looking at the state sequence in more detail will help us understand. Actually, we are interested in identifying when an animal is in each of the behavioural states (here when the animal is in state 1 vs state 2), something we call state decoding. To do so, we can use the function `viterbi`, which uses the Viterbi algorithm to produce the most likely sequence of states according to your fit model and data.
+We are interested in identifying when an animal is in each of the behavioural states (i.e., when the animal is in state 1 vs state 2), something we call state decoding. We can use the function `viterbi`, which uses the Viterbi algorithm to produce the most likely sequence of states according to your fit model and data.
 </p>
 
 ```{r viterbi, message=FALSE, attr.source = ".numberLines", cache=TRUE}
@@ -490,17 +467,17 @@ head(statep)
 <p style='text-align: justify;'> 
 We can see here the probability of being in both states for the first $6$ time steps. Here, the probability of being in state 1 is really high for these steps, but that may not always be the case. Sometimes you might have values closer to $0.5$, which would indicate that for that time step, it’s hard to identify which state you are in (i.e., which step length and turning angle distributions fit best).
 
-You can plot the results from both of these functions using the function `plotState`
+You can plot the entire sequence from both of these functions using the following code:
 </p>
 
-```{r plotstates, message=FALSE, attr.source = ".numberLines", cache=TRUE}
+```{r plotstates, message=FALSE, attr.source = ".numberLines", cache=TRUE, eval = FALSE}
 plotStates(HMM_gps_crw_NAgaps)
 ```
 
 ## Checking the Model
 
 <p style='text-align: justify;'> 
-The first thing we need to look into is whether the parameter estimates are reliable. As mentioned above, the initial parameter values can affect the estimating procedures. So it’s always good to check if you get similar results with different starting values. Here, we will make the starting values of the two behavioural states closer to one another.
+The first thing we need to look into is whether the parameter estimates are reliable (i.e., if we are finding the global maximum). As mentioned above, the initial parameter values can affect the estimating procedures. So it’s always good to check if you get similar results with different starting values. Here, we will make the starting values of the two behavioural states closer to one another.
 </p>
 
 ```{r inits_check, message=FALSE, attr.source = ".numberLines", cache=TRUE}
@@ -582,7 +559,7 @@ Still looking very similar!
 
 <p style='text-align: justify;'> 
 
-We fitted a model to the data, looks like the parameter estimates are reliable, and we can get state probabilities, but is this a good model for our data? Can we use the model results? The best way to investigate model fit is through pseudo-residuals. Pseudo-residuals are a type of model residuals that account for the interdependence of observations. They are calculated for each of the time series (e.g., you will have pseudo-residuals for the step length time series and for the turning angle time series). If the fit model is appropriate, the pseudo-residuals produced by the functions `pseudoRes` should follow a standard normal distribution. You can look at pseudo-residuals directly via the function `plotPR`, which plots the pseudo-residual times-series, the qq-plots, and the autocorrelation functions (ACF).
+We fitted a model to the data and it looks like the parameter estimates are reliable, but is this a good model for our data? Can we use the model results? The best way to investigate model fit is through pseudo-residuals. Pseudo-residuals are a type of model residuals that account for the interdependence of observations. They are calculated for each of the time series (e.g., you will have pseudo-residuals for the step length time series and for the turning angle time series). If the fit model is appropriate, the pseudo-residuals produced by the functions `pseudoRes` should follow a standard normal distribution. You can look at pseudo-residuals directly via the function `plotPR`, which plots the pseudo-residual times-series, the qq-plots, and the autocorrelation functions (ACF).
 </p>
 
 ```{r plotpr, message=FALSE, attr.source = ".numberLines", cache=TRUE}
