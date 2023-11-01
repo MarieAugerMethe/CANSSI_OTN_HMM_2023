@@ -13,9 +13,9 @@ editor_options:
 ```{=html}
 <style>
 body
-  { counter-reset: source-line 0; }
+{ counter-reset: source-line 0; }
 pre.numberSource code
-  { counter-reset: none; }
+{ counter-reset: none; }
 </style>
 ```
 
@@ -52,7 +52,7 @@ The primary learning objectives in this first tutorial are to:
 ## Setup and data preparation
 <p style='text-align: justify;'>
 First, let's load the packages that we will need to complete the
-analyses. Off course you need to have them installed first.</p>
+analyses. Of course you need to have them installed first.</p>
 
 ```{r Load packages,include = FALSE, attr.source = ".numberLines"}
 library(momentuHMM) # Package for fitting HMMs, builds on moveHMM
@@ -115,10 +115,10 @@ tracks_gps <- tracks_gps %>%
 
 <p style='text-align: justify;'> 
 For the main tutorial, since we only use the fastloc GPS data, we don't have to deal with location error.
- </p>
- <p style='text-align: justify;'> 
+</p>
+<p style='text-align: justify;'> 
 Now we will plot the tracks with a new package `ggOceanMaps` that will show the tracks on the map of the Earth. To do so, we need to choose the limits of the map.  We set them to the limits in Longitude and Latitude of our data (`bbox`below). This package is convenient since it deals with Longitude and Latitude, and there is no need to transform our dataset (other methods usually requires to transform the dataset into an `sf` object). In the `crs` argument, we define the coordinate reference system of the original data (in this case WGS84, which is defined by the EPSG code `4326`).
- </p>
+</p>
 
 ```{r plot_gps_data, warning=FALSE, attr.source = ".numberLines"}
 #Transform the dataset into a data.frame with longitude, latitude and ID of the animal
@@ -136,7 +136,7 @@ basemap(limits = c(bbox)) +
 <p style='text-align: justify;'>
 
 We can also add the bathymetry to the map, to get a better sense of the movement by adding the argument `bathymetry= TRUE` in the basemap function. To do so, we will need to dezoom.
- </p>
+</p>
 ```{r plot_gps_data_bathymetry, warning=FALSE, attr.source = ".numberLines"}
 df <-  cbind.data.frame(Lon = c(tracks_gps$x),Lat = c(tracks_gps$y), ID = c(tracks_gps$ID))
 bbox <-c(min(tracks_gps$x)-5,max(tracks_gps$x)+5,min(tracks_gps$y)-1,max(tracks_gps$y)+1)
@@ -164,7 +164,7 @@ First, let's calculate the time difference between successive records using `dif
 # Calculate time difference between locations
 tracks_gps <- tracks_gps %>%
   mutate(dt = ifelse(ID == lead(ID), # If next data row is same individual
-                      # calculate time difference
+                     # calculate time difference
                      difftime(lead(time), time, units = "mins"), NA))
 ```
 
@@ -268,10 +268,10 @@ For later stages in this tutorial, I want to use the tracks predicted using this
 ```{r create_tracks_crw, message=FALSE, attr.source = ".numberLines"}
 # filter predicted locations from predicted CRW model
 tracks_gps_crw <- data.frame(crw_gps_10$crwPredict) %>% 
-    filter(locType == "p") %>% 
-    dplyr::select(mu.x, mu.y, time,
-                  ID) %>% 
-    dplyr::rename(x = "mu.x", y = "mu.y")
+  filter(locType == "p") %>% 
+  dplyr::select(mu.x, mu.y, time,
+                ID) %>% 
+  dplyr::rename(x = "mu.x", y = "mu.y")
 ```
 <p style='text-align: justify;'> 
 
@@ -342,6 +342,11 @@ prepData_NAGaps <- function(track_list, tracks_crw, res, max_gap, ...){
 
 prep_tracks_gps_crw_NAgaps <- prepData_NAGaps(tracks_gps_ls, tracks_gps_crw, 
                                               10, 60, type = "UTM")
+
+# get time of day covariate (which will be used later)
+prep_tracks_gps_crw_NAgaps$tod <- hour(prep_tracks_gps_crw_NAgaps$time) + minute(prep_tracks_gps_crw_NAgaps$time)/60
+
+head(prep_tracks_gps_crw_NAgaps)
 ```
 <p style='text-align: justify;'> 
 The main idea is to use `tracks_gps_ls` to locate the large gaps with the `NA_gaps` function and then 
@@ -357,9 +362,7 @@ Another strategy to deal with larger gaps is to segment the tracks with a new in
 
 <p style='text-align: justify;'> 
 In the next part of this tutorial, we will explore how to fit hidden Markov models
-(HMMs) to the `prep_tracks_gps_crw_NAgaps` dataset. To do so, we will investigate the R package,`momentuHMM`. This package builds on a slightly older package, `moveHMM`, that was developed by Théo Michelot , Roland Langrock, and
-Toby Patterson, see associated paper:
-<https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.12578>.`momentuHMM`, was developed by Brett McClintock and Théo Michelot. momentuHMM has new features such as allowing for more data streams,inclusion of covariates as raster layers, and much more, see associated paper: <https://besjournals.onlinelibrary.wiley.com/doi/abs/10.1111/2041-210X.12995>.
+(HMMs) to the `prep_tracks_gps_crw_NAgaps` dataset in the R package `momentuHMM` >.
 </p> 
 
 # Fit HMM to data 
@@ -408,7 +411,7 @@ abline(h = 600, col = rgb(1, 0, 0, 0.5))
 
 <p style='text-align: justify;'> 
 So let’s choose $100$ and $600$ for the means step lengths and use half those values for the standard deviations. The turning angles are either very close to $0$ or pretty spread from $-\pi/2$ to $\pi/2$. High concentration parameter values ($\kappa$, said kappa) mean that the animal has a tendency to move in the same direction. Values close to 0 mean that the turning angle distribution is almost uniform (the animal turns in all directions). Note that $\kappa$
- cannot be exactly 0, so let’s choose 0.1 and 1.
+cannot be exactly 0, so let’s choose 0.1 and 1.
 </p> 
 
 ```{r inits3, message=FALSE, attr.source = ".numberLines", cache=TRUE}
@@ -511,8 +514,8 @@ Par2 <- list(step = c(mu2, sigma2), angle = kappa2)
 
 # Fit the same 2 state HMM
 HMM_gps_crw_NAgaps2 <- fitHMM(prep_tracks_gps_crw_NAgaps, 
-                             stateNames = stateNames, nbState = 2, 
-                             dist = dist, Par0 = Par0)
+                              stateNames = stateNames, nbState = 2, 
+                              dist = dist, Par0 = Par0)
 
 
 ``` 
@@ -546,10 +549,10 @@ Let’s try (this will take a few minutes).
 # This is a random pertubation, so setting the seed to get the same results
 set.seed(29)
 HMM_RF <- fitHMM(prep_tracks_gps_crw_NAgaps,
-                    nbState = 2,
-                    dist=list(step="gamma", angle="vm"),
-                    Par0 = list(step=c(mu2, sigma2), angle=kappa2),
-                    retryFits=10)
+                 nbState = 2,
+                 dist=list(step="gamma", angle="vm"),
+                 Par0 = list(step=c(mu2, sigma2), angle=kappa2),
+                 retryFits=10)
 ``` 
 
 <p style='text-align: justify;'> 
@@ -606,7 +609,7 @@ Par3 <- list(step = c(mu3, sigma3), angle = kappa3)
 # Fit the same 3 state HMM
 HMM_gps_crw_NAgaps3 <- fitHMM(prep_tracks_gps_crw_NAgaps, 
                               nbState = 3, 
-                             dist = dist, Par0 = Par3)
+                              dist = dist, Par0 = Par3)
 
 plot(HMM_gps_crw_NAgaps3)
 ``` 
@@ -625,4 +628,100 @@ plotPR(HMM_gps_crw_NAgaps3)
 It's better. Not perfect, but less unexplained autocorrelation, especially in the step lengths. If we look at the step length distribution, we can see that we have still our state with really small steps (maybe resting?), a state with steps of medium size (maybe foraging?), and a state with large steps (maybe travelling?). Looking at the track, it does look like the movement in state 2 is more tortuous and in focal areas, while the movement in state $3$ is very directed and span larger areas.
 </p>
 
+# Adding covariates to the model
+We can add covariates to our HMM to better understand drivers of behaviour. We can either include covariates on the transition probabilities (i.e., the state process) or in the state-dependent distributions (i.e., the observation process). Respectively, these answer the questions: 
+
+  * Does a covariate have an effect on the probability of switching between states?
+  
+  * Does a covariate have an effect on the movement within each state?
+
+## Covariates on transition probabilities
+It's probably most common to include covariates on the transition probabilities in an HMM to assess how spatial, temporal, or demographic factors influence the state-switching dynamics. For example, prey density may increase the probability of switching into a foraging state or states may follow temporal patterns throughout the day. At time $t$, each transition probability is linked to covariates using a multinomial logit link
+	$$\gamma_{ij}^{(t)} = Pr(S_{t+1} = j \mid S_t = i) = \frac{\exp(\eta_{ij}^{(t)})}{\sum_{k=1}^{K}\exp(\eta_{ik}^{(t)})} $$
+	with the linear predictor for $P$ covariates $\{\omega_1^{(t)}, \omega_2^{(t)}, \dots \omega_P^{(t)}\}$ given as
+$$\eta_{ij}^{(t)} = \begin{cases}
+	\beta^{(ij)}_0 + \sum_{p=1}^{P} \beta_p^{(ij)} \omega_p^{(t)} & \text{if } i \neq j \\
+	0 & \text{otherwise.}
+	\end{cases} $$
+	For each transition probability, $\beta_0^{(ij)}$ is an intercept parameter, and $\beta_p^{(ij)}$ measures the effect of the $p$-th covariate $\omega_p$. 
+
+
+Here, we will assess if transition probabilties vary as a function of time of day, and we will use a 2-state model for demonstration.The first step is to define our model formula. Since time of day is a cyclic covariate, we must define a relationship that ensures that the transition probabiltiies are similar at the very end and very beginning of the day. We can do this by specify the transition probabilties as a trigonometric (i.e., cyclic) function of time of day (defined as $\tau$), 
+
+$$\eta_{ij}^{(t)} = \begin{cases}
+\beta^{(ij)}_0 + \beta_1^{(ij)} \cos \left(\frac{2 \pi \tau_t}{24}\right) +  \beta_2^{(ij)} \sin \left(\frac{2 \pi \tau_t}{24}\right) & \text{if } i \neq j \\
+0 & \text{otherwise} 
+	\end{cases} ,$$
+where 24 refers for the 24 hour period of interest. This relationhip can conveniently be specified with the `cosinor` function. 
+
+```{r, message = FALSE, cache = TRUE}
+# set new formula
+formula <- ~cosinor(tod, period = 24)
+```
+Next, we need to specify initial parameters and we will use the function `getPar0` to do so. This will use the estimated parameters of a previously fitted 2-state model with no covariates. Note it will set the unknown linear predictor parameters to 0, and use the intercept of the previous model. 
+```{r, message = FALSE, cache = TRUE}
+# set tpm formula and extract initial values from simpler model
+Par0_m2 <- getPar0(model = HMM_gps_crw_NAgaps, formula = formula)
+Par0_m2
+```
+
+Then we can fit the model. The `formula` argument defines the model formula for the transition probabilities, and we need to set the correct initial parameters (i.e., `Par0` for the observation parameters and `beta0` for the transition probability model). 
+```{r, message = FALSE, cache = TRUE}
+# fit model
+m_tod_tpm <- fitHMM(prep_tracks_gps_crw_NAgaps,
+                    nbStates=2,
+                    dist=dist,
+                    Par0=Par0_m2$Par,
+                    beta0=Par0_m2$beta,
+                    formula=formula)
+m_tod_tpm$mle$beta
+```
+There are several ways to visualise the relationship. If you use the standard `plot()` function on the fitted HMM, you can visualise the transition probabilities directly. Another option is to plot the stationary state probabilities, which represent how likely the animal is to be in each behaviour at each time of day.
+```{r}
+plotStationary(m_tod_tpm, plotCI = TRUE)
+```
+
+## Covariates in the observation model
+
+This section will illustrate how to model mean step length as a function of time of day. Any parameter in the observation model (e.g., mean/sd of the step lengths, or turning angle parameters) can be modelled as a function of a covariate,  which allows for the movement behaviour within each discrete state to vary. Here, we will use the same trigonometric function described in the previous section to model mean step length based on the time of day. To do so, we specify `DM`, which will be a list of formulas for the step length (and possibly other) prameters. For simplicity, we will only model the mean, but it is common to also model the standard deviation with the same relationship. We can derive the initial parameters using the `getPar0` function, as described in the previous section.
+
+```{r, message=FALSE, cache=FALSE}
+set.seed(1)
+
+# define step formula and design matrix
+DM <- list(step = list(mean = formula, sd = ~1))
+
+# extract initial values from simpler 2-state model with no covariates
+Par0_m3 <- getPar0(model = HMM_gps_crw_NAgaps, DM = DM)
+```
+Now we can fit the HMM with covariate-dependent observation parameters. 
+
+```{r, cache = TRUE, message = FALSE}
+# fit model
+m_tod_obs <- fitHMM(prep_tracks_gps_crw_NAgaps, 
+                    nbStates = 2, 
+                    dist = dist, 
+                    Par0 = Par0_m3$Par,
+                    beta0 = Par0_m3$beta, 
+                    DM = DM)
+m_tod_obs
+```
+
+The regression coefficients are difficult to interpret for a cyclic function, but we can view the estimated relationship for each state with confidence intervals. Note, when the model has covariates, you can include `plotCI = T` to include the 95% confidence intervals on the estimated value.
+
+```{r, fig.keep = 1:2}
+plot(m_tod_obs, ask = F, plotCI = T, plotTracks = F)
+```
+
+This shows that the mean step within each state varies based on time of day, with higher step lengths in the morning. State 1 has a mean ranging from roughly 280-300m and state 2 ranges from roughly 600-900m. 
+
+As the observation data is the same between these models and the model in section \@ref(void-gaps), we can use AIC to compare models with and without time of day effects.
+
+```{r AIC_htides_HMMs, attr.source = ".numberLines", collapse=TRUE}
+AIC(HMM_gps_crw_NAgaps)  # without time of day
+AIC(m_tod_tpm)  # time of day effect on transition probabilities
+AIC(m_tod_obs)  # time of day effect on observation parameters
+```
+
+This indicates the the model with a time-varying mean step length is the best fitting model. 
 
