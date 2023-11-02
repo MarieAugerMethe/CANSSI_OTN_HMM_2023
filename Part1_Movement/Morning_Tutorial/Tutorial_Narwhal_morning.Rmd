@@ -185,7 +185,15 @@ Here we see that the $10$ min interval, around $50\%$ of the locations would be 
 For this tutorial, we will use a $10$ min resolution.
 </p>
 # Handling data gaps 
-There are several ways to deal with data gaps, but we will focus on the following option using path segmentation. The basic steps are:
+There are several ways to deal with data gaps:
+
+1. Split tracks
+2. Interpolate locations
+3. Fill the gaps with NAs
+4. Multiple imputation
+
+
+In this tutorial, we will combine options 1 and 2, using path segmentation. The basic steps are:
 
 1. Splitting tracks
 2. Interpolating locations within each track segment
@@ -200,7 +208,7 @@ data_split <- split_at_gap(data = tracks_gps,
                            shortest_track = 20)
 ```
 
- An alternative to this approach is to fill large gaps with NAs, but this can be problematic if there is any covariate-dependence on the transition probabilities.
+ An alternative to this approach is to fill large gaps with NAs, but this can be problematic if there is any covariate-dependence on the transition probabilities. You can find some code at the end of this tutorial, that handles missing data by setting the gaps to NAs, using the package `simFrame`.
 
 ## Interpolation (correlated random walk)
 
@@ -232,7 +240,9 @@ data <- crwOut$crwPredict[which(crwOut$crwPredict$locType == "p"),
 colnames(data) <- c( "ID","x", "y", "time")
 ```
 
-Notice how the predicted tracks do not make perfectly straight lines through missing sections, which is an improvement on simple linear interpolation methods. 
+Notice how the predicted tracks do not make perfectly straight lines through missing sections, which is an improvement on simple linear interpolation methods. The last approach to estimate missing locations and regularise the data that is not covered here is multiple imputation. 
+
+Multiple imputation works by first fitting a CTCRW model to the original data, second, drawing (i.e., simulating) a number of realisations of the position process based on the CTCRW model, third, fitting HMMs to each of the simulated realisations, and finally, pooling the estimated parameters. `momentuHMM` has several functions to implement multiple imputation. The function MIfitHMM can be used both to simulate realisations of a fitted CTCRW and fit HMMs to each one. The number of simulations is specified with `nSims`. We can simulate realisations without fitting HMMs by setting `fit = FALSE`. You can have a look at the bonus section if you are interested in performing multiple imputations to handle missing data.
 
 ## Covariates and data streams
 Next, we need to derive our data streams (step lengths and turning angles) and covariates. We don't have any spatial covariates, but we could interpolate them now if we did. Rather, we will be using a time of day covariate later in our tutorial, so we will derive this covariate now.
@@ -633,3 +643,68 @@ AIC(mod_obs)  # time of day effect on observation parameters
 
 This indicates the the model with a time-varying mean step length is the (marginally) best fitting model. 
 
+## Bonus
+### Pad large gaps with NAs
+We mentioned previously that another strategy to address data gaps is to leave the data streams (i.e., step length and turning angle) as NAs. Typically, we can void sections with $>6$ missing locations. The maximum size of a gap to allow depends on the frequency of the missing data, frequency of locations, study species, and behaviours of interest. Voiding gaps is particularly useful for moderate and large gaps, however, it may often be the best option for small gaps as well. The package `simFrame` has a function `setNA` dedicated to it.
+
+Let us first install and load the package.
+
+```{r package setNA,include=FALSE}
+library(simFrame)
+library(adehabitatLT)
+```
+
+
+```{r setNA}
+# Create adehabitat object, containing the trajectory padded with NAs
+data_ade <- setNA(ltraj = as.ltraj(xy = data_split[, c("x", "y")], 
+                                   date = data_split$time, 
+                                   id = data_split$ID), 
+                  date.ref = data_split$time[1], 
+                  dt = 10, tol = 5, units = "min")
+
+# Transform back to dataframe
+data_na <- ld(data_ade)[, c("id", "x", "y", "date")]
+colnames(data_na) <- c("ID", "x", "y", "time")
+```
+
+
+### Multiple Imputation
+Here, let’s use first fit a CTCRW model on complete tracks (not segmented) that we fit in the tutorial  to simulate 4 tracks using MIfitHMM and plot them over the original track.
+
+```{r MI}
+set.seed(12)
+
+#transform the tracks into an sf object
+tracks_gps_sf <- tracks_gps %>%
+  st_as_sf(coords = c("x", "y")) %>% # converts to an sf object
+  st_set_crs(4326) %>% # define CRS
+  st_transform(2962) # reproject data to a UTM
+
+#Fit the correlated random walk, MIfithmm takes a crwData object
+crw_gps_10 <- crawlWrap(obsData = tracks_gps_sf, timeStep = "10 mins")
+
+# simulate 4 realisations of the 10 min GPS CTCRW model
+MI_sim_gps <- MIfitHMM(crw_gps_10, nSims = 4, fit = FALSE)
+
+# plot locations for first narwhal
+# filter first ID from original data
+track <- tracks_gps_sf %>% 
+  mutate(x = st_coordinates(tracks_gps_sf)[,"X"], 
+         y = st_coordinates(tracks_gps_sf)[,"Y"]) %>% 
+  filter(ID == "T172062")
+# filter first ID for each simulation
+sim_tracks <- lapply(MI_sim_gps$miData, function(x){
+  filter(x, ID == "T172062")})
+
+# plot original track for first narwhal
+plot(track$x, track$y, col = "red", xlab = "x", ylab = "y", asp = 1, type = "l")
+# plot each simulated track
+mute <- mapply(function(data, col) {
+                 points(y ~ x, data = data, col = col, type = "l")
+               }, data = sim_tracks, 
+               col = list("cadetblue1", "cadetblue2", "cadetblue3", "cadetblue4"), 
+               SIMPLIFY = FALSE)
+```
+
+Notice how in some areas the different simulations have generally good agreement in the likely location during gaps, while in others they diverge. Multiple imputation can be particularly powerful if we want to incorporate environmental variables, as spatially explicit variables can be extracted for each simulated track to sample the most likely conditions encountered by the animal.
