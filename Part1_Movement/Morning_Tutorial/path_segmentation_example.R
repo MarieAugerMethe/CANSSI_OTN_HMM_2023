@@ -57,15 +57,53 @@ Par0 <- list(step = c(mu0, sigma0), angle = kappa0)
 
 # Fit a 2 state HMM
 m1 <- fitHMM(data, 
-              stateNames = stateNames,
-              nbState = 2, 
-              dist = dist, 
-              Par0 = Par0)
+             stateNames = stateNames,
+             nbState = 2, 
+             dist = dist, 
+             Par0 = Par0)
 
 # Let's look at parameter estimates 
 m1
 plot(m1, plotTracks = FALSE)
 
+# Setting up the starting values
+mu2 <- c(400, 600) # Mean step length
+sigma2 <- mu2/2 # SD of the step length
+kappa2 <- c(1, 1) # Turn angle concentration parameter
+# combine starting parameters 
+Par2 <- list(step = c(mu2, sigma2), angle = kappa2)
+
+# Fit the same 2 state HMM
+m1b <- fitHMM(data, 
+              stateNames = stateNames, 
+              nbState = 2, 
+              dist = dist, 
+              Par0 = Par2)
+
+m1_RF <- fitHMM(data, 
+                stateNames = stateNames, 
+                nbState = 2, 
+                dist = dist, 
+                Par0 = Par0, 
+                retryFits = 10)
+
+plotPR(m1)
+
+# Setting up the starting values
+mu3 <- c(100, 600, 1000) # Mean step length
+sigma3 <- mu3/2 # SD of the step length
+kappa3 <- c(0.1, 1, 1) # Turn angle concentration parameter
+# combine starting parameters 
+Par3 <- list(step = c(mu3, sigma3), angle = kappa3)
+
+m1c <- fitHMM(data, 
+              nbState = 3, 
+              dist = dist, 
+              Par0 = Par3)
+
+plot(m1c, plotTracks = FALSE)
+
+plotPR(m1c)
 
 
 

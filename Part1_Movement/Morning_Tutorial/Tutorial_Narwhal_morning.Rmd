@@ -65,6 +65,7 @@ library(ggspatial)  # plot the data
 library(lubridate)  # transform numeric vectors to POSIXct objects.
 library(sf)         # spatial data processing
 library(kableExtra) # produce visually appealing tables
+source("utility_functions.R")
 ```
 <p style='text-align: justify;'> 
 While the `raster` package is being phased out in favour of the new `terra` package, `momentuHMM` still relies on the `raster` package to extract covariates. Therefore, for this tutorial we will still use `raster`, but do start working with `terra` in your work where possible.  Make sure to set working directory to "CANSSI_OTN_HMM_2023" of the HMM workshop folder:
@@ -113,15 +114,13 @@ Now we will plot the tracks with a new package `ggOceanMaps` that will show the 
 </p>
 
 ```{r plot_gps_data, warning=FALSE, attr.source = ".numberLines"}
-#Transform the dataset into a data.frame with longitude, latitude and ID of the animal
-df <-  cbind.data.frame(Lon = c(tracks_gps$x),Lat = c(tracks_gps$y), ID = c(tracks_gps$ID))
-
 #Define the geographical limits (box) of the background map: c(min_lon,max_lon,min_lat,max_lat)
 bbox <-c(min(tracks_gps$x),max(tracks_gps$x),min(tracks_gps$y),max(tracks_gps$y))
 
 #Plot the data, with background map
 basemap(limits = c(bbox), bathymetry = TRUE) + 
-  geom_spatial_path(data=df, aes(x = Lon, y = Lat,colour=factor(ID)), crs = 4326)+
+  geom_spatial_path(data = tracks_gps, 
+                    aes(x = x, y = y,colour=factor(ID)), crs = 4326)+
   ggtitle("Movement data of the narwhals")
 
 ```
@@ -158,25 +157,10 @@ tracks_gps %>%
   sort(decreasing = TRUE) %>% 
   head()
 ```
-<p style='text-align: justify;'> 
+
 We see that the most frequent time gap is $10$ min, followed by $11$, $12$, $22$, $9$ and $13$ min. We also see the majority of the gaps are $< 60$ min, however some are in excess of $600$ min. Because HMMs assume observations taken at regular time intervals, finer resolutions will contain more data gaps that would need to be interpolated. Frequent and large data gaps can be difficult to handle, especially as the number of missing data points approaches or exceeds the existing data. Let's examine the potential data structure at different resolutions for the different animals.
 
-We first create a function that approximates the proportion of missing locations we would have for a given resolution.
-</p>
-```{r proportion_NA_fx, attr.source = ".numberLines"}
-# Make function to estimate proportion of missing locations 
-p_na <- function(time, res) {
-  time <- round_date(time, paste(res,"min")) # round to nearest resolution
-  time <- na.omit(time[time != lead(time)]) # remove duplicate time
-  # calculate maximum number of locations          
-  max_n_loc <- length(seq(time[1], tail(time, 1) + res*60, 
-                          by = as.difftime(res, units = "mins")))
-  n_NA <- max_n_loc - (length(time)+1)
-  n_NA / max_n_loc
-}
-```
-
-We can now use this function to look at the proportion of NAs we would get with 10, 20, 30, and 60 min resolution.
+We can now use the function `p_na` (in the script `utility_functions.R`) to look at the proportion of NAs we would get with 10, 20, 30, and 60 min resolution.
 
 ```{r track_resolution_proportion_NA, attr.source = ".numberLines"}
 # summarise track dt
@@ -197,150 +181,63 @@ Here we see that the $10$ min interval, around $50\%$ of the locations would be 
 For this tutorial, we will use a $10$ min resolution.
 </p>
 # Handling data gaps 
-There are several ways to deal with data gaps, and we will address two:
+There are several ways to deal with data gaps, but we will focus on the following option using path segmentation. The basic steps are:
 
-1. Interpolation (correlated random walk)
-2. Voiding data gaps
+1. Splitting tracks
+2. Interpolating locations within each track segment
+
+## Splitting tracks
+The basic idea of path segmentation is to split the track at points where there are very large data gaps (i.e., assign each track segment a new individual ID). This may be particularly appropriate for gaps where we may reasonably expect that the underlying states are effectively independent of one another, or long enough gaps that we don't expect any interpolation method to perform well. We can split the tracks for gaps larger than a predetermined threshold by iterating the ID column. Here, we will use a function (found in `utility_functions.R`) to split the tracks. We define the maximum allowable gap (at which point it will start a new segment), as well as the shortest allowable track segment. An alternative to this approach is to fill large gaps with NAs, but this can be problematic if there is any covariate-dependence on the transition probabilities.
+
+```{r segmentation}
+# Use function from utility_function.R to split data at gaps > 2 hours
+data_split <- split_at_gap(data = tracks_gps, 
+                           max_gap = 60, 
+                           shortest_track = 20)
+```
 
 ## Interpolation (correlated random walk)
 
-<p style='text-align: justify;'> 
-For large datasets with few and small gaps, the simplest approach is to use linear interpolation between missing times. A slightly better way to interpolate locations is to fit a continuous-time correlated random walk (CTCRW) model to the data and predict the most likely locations. `momentuHMM` contains wrapper functions to interpolate missing locations by fitting a CTCRW to the data based on the `crawl` package by Devin Johnson and Josh London. There are many options to fit the CTCRW model, and a detailed tutorial for analysis with `crawl` is available here: <https://jmlondon.github.io/crawl-workshop/crawl-practical.html>. Let's try to fit the most basic model using the wrapper function `crawlWrap`. In the most basic form, we only need to provide tracking data with the columns `ID`, `time`, `x`, and `y` and specify the desired temporal resolution. 
-</p>
+Once the track is split, there is often still irregularity within each segments, and we want to interpolate or predict new locations to form a regular grid of observations. The simplest approach is to use linear interpolation between missing times, but a better option is to predict locations from a continuous-time correlated random walk (CTCRW). `momentuHMM` contains wrapper functions to interpolate missing locations by fitting a CTCRW to the data based on the `crawl` package by Devin Johnson and Josh London. There are many options to fit the CTCRW model, and a detailed tutorial for analysis with `crawl` is available here: <https://jmlondon.github.io/crawl-workshop/crawl-practical.html>. Let's try to fit the most basic model using the wrapper function `crawlWrap`. In the most basic form, we only need to provide tracking data with the columns `ID`, `time`, `x`, and `y` and specify the desired temporal resolution. 
 
-<p style='text-align: justify;'> 
 First, let us transform the data into an `sf` object. `crawlWrap` can also take a data.frame as an argument but that would imply renaming some of our columns. It is easier to just transform the data into an `sf`  object.
-</p>
+
 
 ```{r define_projection, message=FALSE, attr.source = ".numberLines"}
-tracks_gps_sf <- tracks_gps %>%
+data_sf <- data_split %>%
   st_as_sf(coords = c("x", "y")) %>% # converts to an sf object
   st_set_crs(4326) %>% # define CRS
   st_transform(2962) # reproject data to a UTM
 ```
 
+Now we can fit the CTCRW to each track segment and create a dataframe of predicted locations.
 
-```{r crawl_10_min_gps, attr.source = ".numberLines", message=FALSE, cache=TRUE, collapse=TRUE}
+```{r crawl_10_min_gps, attr.source = ".numberLines", message=FALSE, warning= FALSE, cache=TRUE, collapse=TRUE}
 # crawl can fail to fit periodically, so I recommend always setting a seed 
 set.seed(12)
 
 # fit crawl
-crw_gps_10 <- crawlWrap(obsData = tracks_gps_sf, timeStep = "10 mins")
+crwOut <- crawlWrap(obsData = data_sf, timeStep = "10 mins")
+plot(crwOut, animals = "T172062-3", ask = FALSE)
 
-# view that all parameters were properly estimated 
-crw_gps_10$crwFits %>% 
-  lapply(function(x){
-    x[c("par","se","ci")] %>%  # get estimated values 
-      unlist() %>%  # unlist
-      is.nan() %>%  # identify values that failed to estimate
-      sum() == 0 # count failed estimates and ensure there are 0
-  }) 
-```
-<p style='text-align: justify;'> 
-Notice how the predicted tracks do not make perfectly straight lines through missing sections (particularly noticeable in T172062). 
-
-For later stages in this tutorial, I want to use the tracks predicted using this CRW method, so we will extract the predicted locations and add them to the observed data.
-</p>
-
-```{r create_tracks_crw, message=FALSE, attr.source = ".numberLines"}
-# filter predicted locations from predicted CRW model
-tracks_gps_crw <- data.frame(crw_gps_10$crwPredict) %>% 
-  filter(locType == "p") %>% 
-  dplyr::select(mu.x, mu.y, time,
-                ID) %>% 
-  dplyr::rename(x = "mu.x", y = "mu.y")
-```
-<p style='text-align: justify;'> 
-
-It is now possible to now to fit an HMM on the `tracks_gps_crw` dataset. We will see later in this tutorial how to do so.
-</p>
-
-## Voiding data gaps {#void-gaps}
-<p style='text-align: justify;'> 
-One strategy to address data gaps is to leave the data streams (i.e., step length and turning angle) as `NAs`. For my own work, I have typically voided sections with $>6$ missing locations. The maximum size of a gap to allow depends on the frequency of the missing data, frequency of locations, study species, and behaviours of interest. 
-</p>
-<p style='text-align: justify;'> 
-Voiding gaps is particularly useful for moderate and large gaps, however, it may often be the best option for small gaps as well. The only catch is that although HMMs can allow for missing data in the state-dependent observation data (e.g., step length and turning angle), HMMs cannot have missing data if there are covariates on the transition probability (for example, if there was an effect of bathymetry on state probability). 
-</p>
-<p style='text-align: justify;'> 
-In this case, we will void the data streams from locations predicting in gaps $>60$ min. First, we will identify which steps need to be voided, then we will prepare the data and void the estimated `step` and `angle` data streams. We will do this again later in the tutorial, so we will wrap it into a function called `prepData_NAGaps`. The function will output a `momentuHMMData` object that can directly be fit using `fitHMM`.
-</p>
-<p style='text-align: justify;'> 
-This methods will not work on data with multiple individuals. To get around this, we can split the data into a list where each element of the list is the location data for each ID. We can use the `R` apply family functions to apply functions to each animal separately. 
-</p>
-```{r convert_tracks_to_list, attr.source = ".numberLines"}
-# convert tracks back to data.frame with xy coordinates
-tracks_gps_ls <- tracks_gps %>% 
-  split(., .$ID)  # split into list
+# Get predicted tracks from crawl output
+data <- crwOut$crwPredict[which(crwOut$crwPredict$locType == "p"),
+                              c( "ID", "mu.x", "mu.y", "time")]
+colnames(data) <- c( "ID","x", "y", "time")
 ```
 
+Notice how the predicted tracks do not make perfectly straight lines through missing sections. Next, we need to derive step lengths and turning angles using the `prepData` function. We don't have any covariates, but if we did, we would specify them here so that the function treats them as such (rather than as ab observation variable). The default is UTM, so we actually don't need to specify it, but we do so for clarity in this example.
+```{r prep}
+# calculate step length and turning angles
+data <- prepData(data, type = "UTM")
 
+# calculate time of day variable (for later use)
+data$tod <- hour(data$time) + minute(data$time) / 60
 
-```{r id_void_gaps, warning=FALSE,attr.source = ".numberLines"}
-# define function to replace step and turn angle of large gaps with NA
-NA_gaps <- function(tracks, times){
-  # rows where location is within a large gap
-  rows <- which(
-    rowSums(apply(times, 1, function(X, tracks){
-      dplyr::between(tracks, 
-                     as.POSIXct(X[1], tz = "UTC"),
-                     as.POSIXct(X[2], tz = "UTC"))
-    }, tracks$time))==1)
-  tracks$step[rows] <- NA
-  tracks$angle[rows] <- NA
-  return(tracks)
-}
-# define function to identify and void gaps
-prepData_NAGaps <- function(track_list, tracks_crw, res, max_gap, ...){
-  # for each ID, identify which rows have gaps >= max_gap 
-  gaps_ls_rows <- lapply(track_list, function(x){
-    which(difftime(lead(x$time), x$time, units = "mins") >= max_gap)
-  })
-  
-  # create sequence of times for each track from gaps >= 60 min
-  gap_ls <- mapply(FUN = function(track, gaps){
-    # identify start and end date of each gap
-    gaps_ls_srt_end <- list(start = ceiling_date(track$time[gaps], paste(res, "min")),
-                            end = floor_date(track$time[gaps+1], paste(res, "min")))
-    # combine into single vector for each track
-    data.frame(start = gaps_ls_srt_end$start, end = gaps_ls_srt_end$end)
-  },
-  track_list, gaps_ls_rows, SIMPLIFY = FALSE)
-  
-  # prep data and list by ID
-  prep_tracks <- prepData(tracks_crw, ...) %>% 
-    {split(., .$ID)}
-  
-  # Interpolate the location at the times from the sequence
-  mapply(FUN = NA_gaps, prep_tracks, gap_ls,
-         SIMPLIFY = FALSE) %>% 
-    do.call("rbind", .) # convert list of tracks back to a single data.frame
-}
-
-prep_tracks_gps_crw_NAgaps <- prepData_NAGaps(tracks_gps_ls, tracks_gps_crw, 
-                                              10, 60, type = "UTM")
-
-# get time of day covariate (which will be used later)
-prep_tracks_gps_crw_NAgaps$tod <- hour(prep_tracks_gps_crw_NAgaps$time) + minute(prep_tracks_gps_crw_NAgaps$time)/60
-
-head(prep_tracks_gps_crw_NAgaps)
+# take a peak at the data
+head(data)
 ```
-<p style='text-align: justify;'> 
-The main idea is to use `tracks_gps_ls` to locate the large gaps with the `NA_gaps` function and then 
-fill them with NAs in the `tracks_gps_crw` dataset. We are using the `tracks_gps_crw` dataset because smaller gaps are filled and the time-resolution is already set.
-
-Now, it is possible to fit an HMM on `prep_tracks_gps_crw_NAgaps`.
-</p>
-
-
-<p style='text-align: justify;'> 
-Another strategy to deal with larger gaps is to segment the tracks with a new individual ID. This may be particularly appropriate for gaps where we may reasonably expect that the underlying states are effectively independent of one another. Specifically, we may ask, over what period of time does the behaviour of the animal affect the subsequent behaviour. In this case, we may expect that the behaviour of a narwhal depends on the behaviour over the proceeding several hours, however is independent after 24 hours. We can split the tracks for gaps larger than a predetermined threshold by iterating the ID column. For each segmented path, it is then possible to void the large gaps and fit a correlated random walks on smaller gaps, as we did before.
-</p> 
-
-<p style='text-align: justify;'> 
-In the next part of this tutorial, we will explore how to fit hidden Markov models
-(HMMs) to the `prep_tracks_gps_crw_NAgaps` dataset in the R package `momentuHMM`.
-</p> 
+It is now possible to now to fit an HMM on this dataset and next we will explore this in the R package `momentuHMM`.
 
 # Fit HMM to data 
 
@@ -370,16 +267,16 @@ requires are: `fitHMM(data, nbState, dist, Par0)`.
 4. We need to select initial values for the parameters to estimate. The HMMs are fit using maximum likelihood estimate (MLE) with a numerical optimizer. An unfortunate aspect of fitting models using numerical optimizers, is that, to be able to explore the parameter space and find the best parameter values for the model, the optimizer needs to start somewhere. You need to decide where it starts. Unfortunately, choosing bad starting values can result in parameter estimates that are not the MLE, but just a local maximum. To choose your initial parameter you can take a quick peak at the data (e.g., using the plots below) and use some general biological information. For example, it’s common for animals to have one behaviour with long step lengths and small turning angles and one behaviour with short step lengths and larger turning angles. From the plots below (note that we can simply use plot on our data), it looks like the animal has step lengths that are close to $100$ and $600$. There could be a third behaviour with larger step lengths. But for now we will consider only two.
 
 <p style='text-align: justify;'> 
-Note, by default, `fitHMM` will set the argument `estAngleMean` to NULL, which means that we assume that the mean angle is $0$ for both behaviours (i.e., the animal has a tendency to continue in the same direction) and that only the angle concentration parameters differ. The concentration parameters control the extent to which the animal continues forward versus turn. Doing so reduces the number of parameters to estimate. These are all very important decisions that you must make when you construct your model. 
+Note, by default, `fitHMM` will set the argument `estAngleMean` to NULL, which means that we assume that the mean angle is $0$ for both behaviours (i.e., the animal has a tendency to continue in the same direction) and that only the angle concentration parameters differ. The concentration parameters control the extent to which the animal continues forward versus turn. Doing so reduces the number of parameters to estimate. These are all very important decisions that you must make when you construct your model. It's useful to visualise your data in order to choose initial parameters.
 </p> 
 
 ```{r inits, warning=FALSE,attr.source = ".numberLines"}
-plot(prep_tracks_gps_crw_NAgaps)
+hist(data$step, 25)
+hist(data$angle, 25)
 ```
 
 ```{r inits2, warning=FALSE,attr.source = ".numberLines"}
-plot(prep_tracks_gps_crw_NAgaps$step ~
-       prep_tracks_gps_crw_NAgaps$time, ty = "l", ylab = "Step length",
+plot(data$step ~ data$time, ty = "l", ylab = "Step length",
      xlab = "Date", las = 1)
 abline(h = 100, col = rgb(1, 0, 0, 0.5))
 abline(h = 600, col = rgb(1, 0, 0, 0.5))
@@ -395,6 +292,7 @@ cannot be exactly 0, so let’s choose 0.1 and 1.
 # define states (optional)
 stateNames <- c("resident", "travel")
 nbState <- length(stateNames)
+
 # define distribution to use for each data stream
 dist <- list(step = "gamma", angle = "vm")
 
@@ -402,32 +300,33 @@ dist <- list(step = "gamma", angle = "vm")
 mu0 <- c(100, 600) # Mean step length
 sigma0 <- mu0/2 # SD of the step length
 kappa0 <- c(0.1, 1) # Turn angle concentration parameter
+
 # combine starting parameters 
 Par0 <- list(step = c(mu0, sigma0), angle = kappa0)
 ``` 
 
-<p style='text-align: justify;'> 
 Ok, we are ready. Let’s fit the HMM and look at the parameter estimates 
-</p>
 
 ```{r fitHMM, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 # Fit a 2 state HMM
-HMM_gps_crw_NAgaps <- fitHMM(prep_tracks_gps_crw_NAgaps, 
-                             stateNames = stateNames, nbState = 2, 
-                             dist = dist, Par0 = Par0)
+mod <- fitHMM(data, 
+              stateNames = stateNames, 
+              nbState = 2, 
+              dist = dist, 
+              Par0 = Par0)
 
 # Let's look at parameter estimates
-HMM_gps_crw_NAgaps
+mod
 ```
 
 
 <p style='text-align: justify;'> 
-We can also use the `plot` function to plot the outputs. This will show us the estimated state-dependent distributions, and estimated states for each location.  
+We can also use the `plot` function to plot the outputs. This will show us the estimated state-dependent distributions, and estimated states for each location. The locations are plotted for each ID separately (of which we have many), and so we will only plot one for simplicity.
 </p>
 
 ```{r plotHMM, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 # plot outputs (for one animal)
-plot(HMM_gps_crw_NAgaps, ask = FALSE)
+plot(mod, ask = FALSE, plotTracks = FALSE)
 ```
 
 
@@ -443,14 +342,15 @@ We are interested in identifying when an animal is in each of the behavioural st
 
 ```{r viterbi, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 # Apply the Viterbi algorithm using your fited model object
-dec_States <- viterbi(HMM_gps_crw_NAgaps)
+dec_states <- viterbi(mod)
+
 # Let's look at predicted states of the first 20 time steps
-head(dec_States, 20)
+head(dec_states, 20)
 ```
 
 ```{r statecounts, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 # How many locations in each state do we have?
-table(dec_States)
+table(dec_states)
 ```
 
 <p style='text-align: justify;'> 
@@ -459,22 +359,33 @@ In many cases, it is more interesting to get the probability of being in each st
 
 ```{r stateprobs, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 # Calculate the probability of being in each state
-statep <- stateProbs(HMM_gps_crw_NAgaps)
+statep <- stateProbs(mod)
 # Let's look at the state probability matrix
 head(statep)
 ```
 
-<p style='text-align: justify;'> 
 We can see here the probability of being in both states for the first $6$ time steps. Here, the probability of being in state 1 is really high for these steps, but that may not always be the case. Sometimes you might have values closer to $0.5$, which would indicate that for that time step, it’s hard to identify which state you are in (i.e., which step length and turning angle distributions fit best).
 
-You can plot the entire sequence from both of these functions using the following code:
-</p>
+You can plot the entire time series (for each ID) from both of these functions using the function `plotStates`. Here, we plot the locations, colored by their viterbi states.
 
-```{r plotstates, message=FALSE, attr.source = ".numberLines", cache=TRUE, eval = FALSE}
-plotStates(HMM_gps_crw_NAgaps)
+```{r}
+# add column for the viterbi sequence and state probabilities
+data$viterbi_state <- factor(dec_states)
+data$state_p1 <- statep[,1]
+
+# Plot tracks, coloured by viterbi states
+ggplot(data, aes(x, y, col = viterbi_state, group = ID)) +
+    geom_point(size = 0.5) + geom_path() +
+    coord_equal()
+
+# Plot tracks, coloured by state probabilities
+ggplot(data, aes(x, y, group = ID, col = state_p1)) +
+  geom_point(size = 0.5) + geom_path() + 
+  coord_equal()
 ```
 
-## Checking the Model
+
+## Checking the Stability of the Parameter Estimates
 
 <p style='text-align: justify;'> 
 The first thing we need to look into is whether the parameter estimates are reliable (i.e., if we are finding the global maximum). As mentioned above, the initial parameter values can affect the estimating procedures. So it’s always good to check if you get similar results with different starting values. Here, we will make the starting values of the two behavioural states closer to one another.
@@ -486,15 +397,16 @@ The first thing we need to look into is whether the parameter estimates are reli
 mu2 <- c(400, 600) # Mean step length
 sigma2 <- mu2/2 # SD of the step length
 kappa2 <- c(1, 1) # Turn angle concentration parameter
+
 # combine starting parameters 
-Par2 <- list(step = c(mu2, sigma2), angle = kappa2)
+Par0_2 <- list(step = c(mu2, sigma2), angle = kappa2)
 
 # Fit the same 2 state HMM
-HMM_gps_crw_NAgaps2 <- fitHMM(prep_tracks_gps_crw_NAgaps, 
-                              stateNames = stateNames, nbState = 2, 
-                              dist = dist, Par0 = Par0)
-
-
+mod2 <- fitHMM(data, 
+               stateNames = stateNames, 
+               nbState = 2, 
+               dist = dist, 
+               Par0 = Par0_2)
 ``` 
 
 <p style='text-align: justify;'> 
@@ -504,18 +416,18 @@ Let’s compare the two results. First let’s look at which of the two has the 
 ```{r comp, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 
 # Negative log likelihood
-c(original = HMM_gps_crw_NAgaps$mod$minimum, new = HMM_gps_crw_NAgaps2$mod$minimum)
+c(original = mod$mod$minimum, new = mod2$mod$minimum)
 
 # Parameter estimates
-cbind(HMM_gps_crw_NAgaps$mle$step, HMM_gps_crw_NAgaps2$mle$step)
+list(mod$mle$step, mod2$mle$step)
 
-cbind(HMM_gps_crw_NAgaps$mle$angle, HMM_gps_crw_NAgaps2$mle$angle)
+list(mod$mle$angle, mod2$mle$angle)
 
-cbind(HMM_gps_crw_NAgaps$mle$gamma, HMM_gps_crw_NAgaps2$mle$gamma)
+list(mod$mle$gamma, mod2$mle$gamma)
 ``` 
 
 <p style='text-align: justify;'> 
-Looks like they both returned very close values for everything. So that’s good! The function `fitHMM` also has the argument `retryFits` which perturbs the parameter estimates and retries fitting the model. We use it when we think the estimates could be local maxima. Since the optimization of HMMs depend on the starting values chosen, it is always good to explore multiple initial values and then choose the best estimates among them (which is done by `retryFits`). The argument is used to indicate the number of times you want perturb the parameters and retry fitting the model (you can choose the size of the perturbation by setting the argument `retrySD)`.
+Looks like they both returned the same estimates for everything. So that’s good! The function `fitHMM` also has the argument `retryFits` which perturbs the parameter estimates and retries fitting the model. We use it when we think the estimates could be local maxima. Since the optimization of HMMs depend on the starting values chosen, it is always good to explore multiple initial values and then choose the best estimates among them (which is done by `retryFits`). The argument is used to indicate the number of times you want perturb the parameters and retry fitting the model (you can choose the size of the perturbation by setting the argument `retrySD)`.
 
 Let’s try (this will take a few minutes).
 </p>
@@ -525,10 +437,10 @@ Let’s try (this will take a few minutes).
 # Fit the same 2-state HMM with retryFits
 # This is a random pertubation, so setting the seed to get the same results
 set.seed(29)
-HMM_RF <- fitHMM(prep_tracks_gps_crw_NAgaps,
+mod_RF <- fitHMM(data,
                  nbState = 2,
                  dist=list(step="gamma", angle="vm"),
-                 Par0 = list(step=c(mu2, sigma2), angle=kappa2),
+                 Par0 = Par0,
                  retryFits=10)
 ``` 
 
@@ -539,20 +451,15 @@ Let’s compare the results again.
 ```{r comp2, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 
 # Negative log likelihood
-c(original = HMM_gps_crw_NAgaps$mod$minimum, new = HMM_gps_crw_NAgaps2$mod$minimum,
-  retryFits = HMM_RF$mod$minimum)
-
-# Parameter estimates
-cbind(HMM_gps_crw_NAgaps$mle$step, HMM_gps_crw_NAgaps2$mle$step, HMM_RF$mle$step)
-cbind(HMM_gps_crw_NAgaps$mle$angle, HMM_gps_crw_NAgaps2$mle$angle, HMM_RF$mle$angle)
-cbind(HMM_gps_crw_NAgaps$mle$gamma, HMM_gps_crw_NAgaps2$mle$gamma, HMM_RF$mle$gamma)
+c(original = mod$mod$minimum, new = mod2$mod$minimum,
+  retryFits = mod_RF$mod$minimum)
 
 ``` 
 
 <p style='text-align: justify;'> 
-Still looking very similar!
+The maximum likelihood was the same in every perturbation, indicating that the optimiser converged to the same estimates.
 
-`momentuHMM` has functions to help selecting initial parameters for complex models. However, these functions rely on the user choosing initial parameter values for a simple model like the one we just explored.
+`momentuHMM` has functions to help selecting initial parameters for complex models, which we will demonstrate later in the tutorial.
 </p>
 
 ## Pseudo-residuals
@@ -564,7 +471,7 @@ We fitted a model to the data and it looks like the parameter estimates are reli
 
 ```{r plotpr, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 
-plotPR(HMM_gps_crw_NAgaps)
+plotPR(mod)
 
 ``` 
 
@@ -581,23 +488,24 @@ mu3 <- c(100, 600, 1000) # Mean step length
 sigma3 <- mu3/2 # SD of the step length
 kappa3 <- c(0.1, 1, 1) # Turn angle concentration parameter
 # combine starting parameters 
-Par3 <- list(step = c(mu3, sigma3), angle = kappa3)
+Par0_3 <- list(step = c(mu3, sigma3), angle = kappa3)
 
 # Fit the same 3 state HMM
-HMM_gps_crw_NAgaps3 <- fitHMM(prep_tracks_gps_crw_NAgaps, 
-                              nbState = 3, 
-                              dist = dist, Par0 = Par3)
+mod_3state <- fitHMM(data, 
+                     nbState = 3, 
+                     dist = dist,
+                     Par0 = Par0_3)
 
-plot(HMM_gps_crw_NAgaps3)
+plot(mod_3state, plotTracks = FALSE, ask = FALSE)
 ``` 
 
 <p style='text-align: justify;'> 
-If we look at the pseudo-residuals
+We can look at the pseudo residuals for the 3 state model:
 </p>
 
 ```{r plotpr2, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 
-plotPR(HMM_gps_crw_NAgaps3)
+plotPR(mod_3state)
 
 ``` 
 
@@ -638,24 +546,24 @@ formula <- ~cosinor(tod, period = 24)
 Next, we need to specify initial parameters and we will use the function `getPar0` to do so. This will use the estimated parameters of a previously fitted 2-state model with no covariates. Note it will set the unknown linear predictor parameters to 0, and use the intercept of the previous model. 
 ```{r, message = FALSE, cache = TRUE}
 # set tpm formula and extract initial values from simpler model
-Par0_m2 <- getPar0(model = HMM_gps_crw_NAgaps, formula = formula)
-Par0_m2
+Par0_4 <- getPar0(model = mod, formula = formula)
+Par0_4
 ```
 
 Then we can fit the model. The `formula` argument defines the model formula for the transition probabilities, and we need to set the correct initial parameters (i.e., `Par0` for the observation parameters and `beta0` for the transition probability model). 
 ```{r, message = FALSE, cache = TRUE}
 # fit model
-m_tod_tpm <- fitHMM(prep_tracks_gps_crw_NAgaps,
+mod_tpm <- fitHMM(data,
                     nbStates=2,
                     dist=dist,
-                    Par0=Par0_m2$Par,
-                    beta0=Par0_m2$beta,
+                    Par0=Par0_4$Par,
+                    beta0=Par0_4$beta,
                     formula=formula)
-m_tod_tpm$mle$beta
+mod_tpm$mle$beta
 ```
 There are several ways to visualise the relationship. If you use the standard `plot()` function on the fitted HMM, you can visualise the transition probabilities directly. Another option is to plot the stationary state probabilities, which represent how likely the animal is to be in each behaviour at each time of day.
 ```{r}
-plotStationary(m_tod_tpm, plotCI = TRUE)
+plotStationary(mod_tpm, plotCI = TRUE)
 ```
 
 ## Covariates in the observation model
@@ -669,25 +577,25 @@ set.seed(1)
 DM <- list(step = list(mean = formula, sd = ~1))
 
 # extract initial values from simpler 2-state model with no covariates
-Par0_m3 <- getPar0(model = HMM_gps_crw_NAgaps, DM = DM)
+Par0_5 <- getPar0(model = mod, DM = DM)
 ```
 Now we can fit the HMM with covariate-dependent observation parameters. 
 
 ```{r, cache = TRUE, message = FALSE}
 # fit model
-m_tod_obs <- fitHMM(prep_tracks_gps_crw_NAgaps, 
+mod_obs <- fitHMM(data, 
                     nbStates = 2, 
                     dist = dist, 
-                    Par0 = Par0_m3$Par,
-                    beta0 = Par0_m3$beta, 
+                    Par0 = Par0_5$Par,
+                    beta0 = Par0_5$beta, 
                     DM = DM)
-m_tod_obs
+mod_obs
 ```
 
 The regression coefficients are difficult to interpret for a cyclic function, but we can view the estimated relationship for each state with confidence intervals. Note, when the model has covariates, you can include `plotCI = T` to include the 95% confidence intervals on the estimated value.
 
 ```{r, fig.keep = 1:2}
-plot(m_tod_obs, ask = F, plotCI = T, plotTracks = F)
+plot(mod_obs, ask = F, plotCI = T, plotTracks = F)
 ```
 
 This shows that the mean step within each state varies based on time of day, with higher step lengths in the morning. State 1 has a mean ranging from roughly 280-300m and state 2 ranges from roughly 600-900m. 
@@ -695,10 +603,10 @@ This shows that the mean step within each state varies based on time of day, wit
 As the observation data is the same between these models and the model in section \@ref(void-gaps), we can use AIC to compare models with and without time of day effects.
 
 ```{r AIC_htides_HMMs, attr.source = ".numberLines", collapse=TRUE}
-AIC(HMM_gps_crw_NAgaps)  # without time of day
-AIC(m_tod_tpm)  # time of day effect on transition probabilities
-AIC(m_tod_obs)  # time of day effect on observation parameters
+AIC(mod)  # without time of day
+AIC(mod_tpm)  # time of day effect on transition probabilities
+AIC(mod_obs)  # time of day effect on observation parameters
 ```
 
-This indicates the the model with a time-varying mean step length is the best fitting model. 
+This indicates the the model with a time-varying mean step length is the (marginally) best fitting model. 
 
