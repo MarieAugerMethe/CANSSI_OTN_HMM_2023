@@ -65,6 +65,7 @@ library(ggspatial)  # plot the data
 library(lubridate)  # transform numeric vectors to POSIXct objects.
 library(sf)         # spatial data processing
 library(kableExtra) # produce visually appealing tables
+library(cowplot)
 source("utility_functions.R")
 ```
 <p style='text-align: justify;'> 
@@ -146,11 +147,14 @@ tracks_gps <- tracks_gps %>%
 
 Let's see what resolutions may be possible in the data by looking at the most frequent time gaps.
 
-```{r calc_track_dt, attr.source = ".numberLines", collapse=TRUE}
-# Visualise time differences
+```{r calc_track_dt, attr.source = ".numberLines", fig.width = 10, fig.height = 4}
+# Visualise time differences (all and zoomed)
+par(mfrow = c(1, 2))
 hist(tracks_gps$dt, 1000, main = NA, xlab = "Time difference (min)")
-# Zoom in on short intervals
 hist(tracks_gps$dt, 1000, main = NA, xlab = "Time difference (min)", xlim = c(0,100))
+```
+
+```{r calc_track_dt2, attr.source = ".numberLines", collapse=TRUE}
 # identify the most frequent dt
 tracks_gps %>% 
   {table(.$dt)} %>% 
@@ -187,14 +191,16 @@ There are several ways to deal with data gaps, but we will focus on the followin
 2. Interpolating locations within each track segment
 
 ## Splitting tracks
-The basic idea of path segmentation is to split the track at points where there are very large data gaps (i.e., assign each track segment a new individual ID). This may be particularly appropriate for gaps where we may reasonably expect that the underlying states are effectively independent of one another, or long enough gaps that we don't expect any interpolation method to perform well. We can split the tracks for gaps larger than a predetermined threshold by iterating the ID column. Here, we will use a function (found in `utility_functions.R`) to split the tracks. We define the maximum allowable gap (at which point it will start a new segment), as well as the shortest allowable track segment. An alternative to this approach is to fill large gaps with NAs, but this can be problematic if there is any covariate-dependence on the transition probabilities.
+One way to account for missing data is to split the track where there are large gaps (i.e., assign each track segment a new individual ID). This may be particularly appropriate for gaps where we may reasonably expect that the underlying states are effectively independent of one another, or long enough gaps that we don't expect any interpolation method to perform well. We can split the tracks for gaps larger than a predetermined threshold by iterating the ID column. Here, we will use a function (found in `utility_functions.R`) to split the tracks. We define the maximum allowable gap (at which point it will start a new segment), as well as the shortest allowable track segment. These are somewhat arbitrary decisions, and depend on your subsequent choices for regularisation. In this tutorial, we will be interpolating missing locations (within each segment) and so we only want to allow gaps that can reasonably be predicted. We're using a 10-minute resolution, so we allow a 60 minute gap (i.e., we assume we can predict 6 missing locations), and we want each segment to be at least 20 locations long so that we have enough information about state transitions.
 
-```{r segmentation}
+```{r segmentation, attr.source = ".numberLines"}
 # Use function from utility_function.R to split data at gaps > 2 hours
 data_split <- split_at_gap(data = tracks_gps, 
                            max_gap = 60, 
                            shortest_track = 20)
 ```
+
+ An alternative to this approach is to fill large gaps with NAs, but this can be problematic if there is any covariate-dependence on the transition probabilities.
 
 ## Interpolation (correlated random walk)
 
@@ -226,17 +232,27 @@ data <- crwOut$crwPredict[which(crwOut$crwPredict$locType == "p"),
 colnames(data) <- c( "ID","x", "y", "time")
 ```
 
-Notice how the predicted tracks do not make perfectly straight lines through missing sections. Next, we need to derive step lengths and turning angles using the `prepData` function. We don't have any covariates, but if we did, we would specify them here so that the function treats them as such (rather than as ab observation variable). The default is UTM, so we actually don't need to specify it, but we do so for clarity in this example.
-```{r prep}
-# calculate step length and turning angles
-data <- prepData(data, type = "UTM")
+Notice how the predicted tracks do not make perfectly straight lines through missing sections, which is an improvement on simple linear interpolation methods. 
 
+## Covariates and data streams
+Next, we need to derive our data streams (step lengths and turning angles) and covariates. We don't have any spatial covariates, but we could interpolate them now if we did. Rather, we will be using a time of day covariate later in our tutorial, so we will derive this covariate now.
+
+```{r prep, attr.source = ".numberLines"}
 # calculate time of day variable (for later use)
 data$tod <- hour(data$time) + minute(data$time) / 60
+```
+
+Now, we will get our observation variables using the `prepData` function. The default is UTM, so we actually don't need to specify it, but we do so for clarity in this example. The argument `covNames` will distinguish our model covariates from data streams. If there are missing covariate values, the default is to fill the missing value with the nearest value. This can be reasonable for spatial covariates, but wouldn't be sensible for a covariate such as time of day. We have no missing covariate values, so it's not a concern, but this is something to be aware of when using `prepData`. 
+
+```{r prep2, attr.source = ".numberLines"}
+# calculate step length and turning angles
+data <- prepData(data, type = "UTM", covNames = "tod")
 
 # take a peak at the data
 head(data)
 ```
+
+
 It is now possible to now to fit an HMM on this dataset and next we will explore this in the R package `momentuHMM`.
 
 # Fit HMM to data 
@@ -261,7 +277,6 @@ requires are: `fitHMM(data, nbState, dist, Par0)`.
 
 2. We need to select the distribution we will use to model the step lengths and the one we will use to model the turning angles. For now, we will use the gamma distribution for the step length and the von Mises for the turning angles. These are commonly used distributions, to model movement data.This means that the argument dist will be set to: list(step="gamma", angle="vm"). Note that dist should be a list with an item for each data stream columns in the data that we are modelling (so here the column step and angle). The gamma distribution is strictly positive (i.e., it does not allow for $0$s). If you have step lengths that are exactly zero in your data set, you need to use zero-inflated distributions. But in this case, we have no zeros.
 
-
 3. We need to decide whether we make the transition probabilities between the behavioural states dependent on covariates. Here, we will start simple and we will not use covariates. 
 
 4. We need to select initial values for the parameters to estimate. The HMMs are fit using maximum likelihood estimate (MLE) with a numerical optimizer. An unfortunate aspect of fitting models using numerical optimizers, is that, to be able to explore the parameter space and find the best parameter values for the model, the optimizer needs to start somewhere. You need to decide where it starts. Unfortunately, choosing bad starting values can result in parameter estimates that are not the MLE, but just a local maximum. To choose your initial parameter you can take a quick peak at the data (e.g., using the plots below) and use some general biological information. For example, it’s common for animals to have one behaviour with long step lengths and small turning angles and one behaviour with short step lengths and larger turning angles. From the plots below (note that we can simply use plot on our data), it looks like the animal has step lengths that are close to $100$ and $600$. There could be a third behaviour with larger step lengths. But for now we will consider only two.
@@ -270,9 +285,13 @@ requires are: `fitHMM(data, nbState, dist, Par0)`.
 Note, by default, `fitHMM` will set the argument `estAngleMean` to NULL, which means that we assume that the mean angle is $0$ for both behaviours (i.e., the animal has a tendency to continue in the same direction) and that only the angle concentration parameters differ. The concentration parameters control the extent to which the animal continues forward versus turn. Doing so reduces the number of parameters to estimate. These are all very important decisions that you must make when you construct your model. It's useful to visualise your data in order to choose initial parameters.
 </p> 
 
-```{r inits, warning=FALSE,attr.source = ".numberLines"}
-hist(data$step, 25)
-hist(data$angle, 25)
+```{r inits, warning=FALSE,attr.source = ".numberLines", fig.width = 10, fig.height = 4}
+par(mfrow= c(1, 2))
+hist(data$step, 25, main = "", xlab = "step length (m)")
+hist(data$angle, 25, main = "", xlab = "turning angle")
+```
+```{r, echo = FALSE}
+par(mfrow= c(1, 1))
 ```
 
 ```{r inits2, warning=FALSE,attr.source = ".numberLines"}
@@ -321,11 +340,11 @@ mod
 
 
 <p style='text-align: justify;'> 
-We can also use the `plot` function to plot the outputs. This will show us the estimated state-dependent distributions, and estimated states for each location. The locations are plotted for each ID separately (of which we have many), and so we will only plot one for simplicity.
+We can also use the `plot` function to plot the outputs. The most interesting output is usually the state-dependent distributions (i.e., the estimated distributions of step lengths and turning angles in each state). Note that setting `plotTracks = TRUE` will plot maps of each track segment, colored based on the estimated state.
 </p>
 
 ```{r plotHMM, message=FALSE, attr.source = ".numberLines", cache=TRUE}
-# plot outputs (for one animal)
+# plot state-dependent distributions
 plot(mod, ask = FALSE, plotTracks = FALSE)
 ```
 
@@ -354,7 +373,7 @@ table(dec_states)
 ```
 
 <p style='text-align: justify;'> 
-In many cases, it is more interesting to get the probability of being in each state rather than the most likely state. To do so, you can use the function `stateProbs`, which returns a matrix of the probability of being in each state for each time step.
+In many cases, it is more interesting to get the probability of being in each state rather than the most likely state. To do so, you can use the function `stateProbs`, which returns a matrix of the probability of being in each state for each time step (this is known as local decoding).
 </p>
 
 ```{r stateprobs, message=FALSE, attr.source = ".numberLines", cache=TRUE}
@@ -366,7 +385,7 @@ head(statep)
 
 We can see here the probability of being in both states for the first $6$ time steps. Here, the probability of being in state 1 is really high for these steps, but that may not always be the case. Sometimes you might have values closer to $0.5$, which would indicate that for that time step, it’s hard to identify which state you are in (i.e., which step length and turning angle distributions fit best).
 
-You can plot the entire time series (for each ID) from both of these functions using the function `plotStates`. Here, we plot the locations, colored by their viterbi states.
+You can plot the entire time series (for each ID) from both of these functions using the function `plotStates`. It's often more interesting to plot the track colored by the most likely states. Here, we plot the locations colored by each form of decoding: the viterbi sequence and probability of being in state 1.
 
 ```{r}
 # add column for the viterbi sequence and state probabilities
@@ -376,14 +395,18 @@ data$state_p1 <- statep[,1]
 # Plot tracks, coloured by viterbi states
 ggplot(data, aes(x, y, col = viterbi_state, group = ID)) +
     geom_point(size = 0.5) + geom_path() +
-    coord_equal()
+    coord_equal() +
+  scale_color_manual(values = c("#E69F00", "#56B4E9"))
 
 # Plot tracks, coloured by state probabilities
 ggplot(data, aes(x, y, group = ID, col = state_p1)) +
   geom_point(size = 0.5) + geom_path() + 
-  coord_equal()
+  coord_equal() +
+  scale_color_continuous(high = "#E69F00", low = "#56B4E9")
+
 ```
 
+You can see that there is general agreement with the global (viterbi) and local decoding, indicating that there is generally a high state probabilty and we have high confidence in our state classification.
 
 ## Checking the Stability of the Parameter Estimates
 
@@ -419,11 +442,11 @@ Let’s compare the two results. First let’s look at which of the two has the 
 c(original = mod$mod$minimum, new = mod2$mod$minimum)
 
 # Parameter estimates
-list(mod$mle$step, mod2$mle$step)
+list(original = mod$mle$step, new = mod2$mle$step)
 
-list(mod$mle$angle, mod2$mle$angle)
+list(original = mod$mle$angle, new = mod2$mle$angle)
 
-list(mod$mle$gamma, mod2$mle$gamma)
+list(original = mod$mle$gamma, new = mod2$mle$gamma)
 ``` 
 
 <p style='text-align: justify;'> 
