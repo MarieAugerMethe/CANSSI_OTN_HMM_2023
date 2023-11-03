@@ -307,8 +307,6 @@ par(mfrow= c(1, 1))
 ```{r inits2, warning=FALSE,attr.source = ".numberLines"}
 plot(data$step ~ data$time, ty = "l", ylab = "Step length",
      xlab = "Date", las = 1)
-abline(h = 100, col = rgb(1, 0, 0, 0.5))
-abline(h = 600, col = rgb(1, 0, 0, 0.5))
 ```
 
 
@@ -510,41 +508,46 @@ plotPR(mod)
 ``` 
 
 <p style='text-align: justify;'> 
-The ACF plot indicate that the model does not fit the step length time series particularly well. The ACF indicates that there is considerable autocorrelation remaining in the time series, even after accounting for the persistence in the underlying behavioural states.
+The plots indicate that the model does not fit the time series particularly well. The step ACF indicates that there is considerable autocorrelation remaining in the time series, even after accounting for the persistence in the underlying behavioural states.
 
 This could indicate that there are more hidden behavioural states. Let’s try a 3-state HMMs.
 </p>
 
+### Activity 3
+<p style='text-align: justify;'> 
+Let’s try a 3-state HMMs.
+</p>
+
 ```{r 3states, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 
+# define distribution to use for each data stream
+dist <- 
+
 # Setting up the starting values
-mu3 <- c(100, 600, 1000) # Mean step length
+mu3 <- # Choose the mean step length
 sigma3 <- mu3/2 # SD of the step length
-kappa3 <- c(0.1, 1, 1) # Turn angle concentration parameter
+kappa3 <-  # Turn angle concentration parameter
 # combine starting parameters 
-Par0_3 <- list(step = c(mu3, sigma3), angle = kappa3)
+Par0_3 <- 
 
 # Fit the same 3 state HMM
-mod_3state <- fitHMM(data, 
-                     nbState = 3, 
-                     dist = dist,
-                     Par0 = Par0_3)
+mod_3state <- 
 
 plot(mod_3state, plotTracks = FALSE, ask = FALSE)
 ``` 
 
 <p style='text-align: justify;'> 
-We can look at the pseudo residuals for the 3 state model:
+Take a look at the pseudo-residuals for your 3 state model:
 </p>
 
 ```{r plotpr2, message=FALSE, attr.source = ".numberLines", cache=TRUE}
 
-plotPR(mod_3state)
+# Plot your model's pseudo-residuals
 
 ``` 
 
 <p style='text-align: justify;'> 
-It's better. Not perfect, but less unexplained autocorrelation, especially in the step lengths. If we look at the step length distribution, we can see that we have still our state with really small steps (maybe resting?), a state with steps of medium size (maybe foraging?), and a state with large steps (maybe travelling?). As shown above, looking at the tracks can help better inspect the nature of the states.
+Is it better? 
 </p>
 
 # Adding covariates to the model
