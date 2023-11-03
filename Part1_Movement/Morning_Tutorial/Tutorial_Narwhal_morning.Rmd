@@ -397,7 +397,7 @@ We can see here the probability of being in both states for the first $6$ time s
 
 You can plot the entire time series (for each ID) from both of these functions using the function `plotStates`. It's often more interesting to plot the track colored by the most likely states. Here, we plot the locations colored by each form of decoding: the viterbi sequence and probability of being in state 1.
 
-```{r}
+```{r plot_states, , attr.source = ".numberLines"}
 # add column for the viterbi sequence and state probabilities
 data$viterbi_state <- factor(dec_states)
 data$state_p1 <- statep[,1]
@@ -572,19 +572,19 @@ $$\eta_{ij}^{(t)} = \begin{cases}
 	\end{cases} ,$$
 where 24 refers for the 24 hour period of interest. This relationhip can conveniently be specified with the `cosinor` function. 
 
-```{r, message = FALSE, cache = TRUE}
+```{r set_tpm_formula, message = FALSE, cache = TRUE, attr.source = ".numberLines"}
 # set new formula
 formula <- ~cosinor(tod, period = 24)
 ```
 Next, we need to specify initial parameters and we will use the function `getPar0` to do so. This will use the estimated parameters of a previously fitted 2-state model with no covariates. Note it will set the unknown linear predictor parameters to 0, and use the intercept of the previous model. 
-```{r, message = FALSE, cache = TRUE}
+```{r tpm_par0, message = FALSE, cache = TRUE, attr.source = ".numberLines"}
 # set tpm formula and extract initial values from simpler model
 Par0_4 <- getPar0(model = mod, formula = formula)
 Par0_4
 ```
 
 Then we can fit the model. The `formula` argument defines the model formula for the transition probabilities, and we need to set the correct initial parameters (i.e., `Par0` for the observation parameters and `beta0` for the transition probability model). 
-```{r, message = FALSE, cache = TRUE}
+```{r fit_tpm, message = FALSE, cache = TRUE, attr.source = ".numberLines"}
 # fit model
 mod_tpm <- fitHMM(data,
                     nbStates=2,
@@ -595,7 +595,7 @@ mod_tpm <- fitHMM(data,
 mod_tpm$mle$beta
 ```
 There are several ways to visualise the relationship. If you use the standard `plot()` function on the fitted HMM, you can visualise the transition probabilities directly. Another option is to plot the stationary state probabilities, which represent how likely the animal is to be in each behaviour at each time of day.
-```{r}
+```{r, attr.source = ".numberLines"}
 plotStationary(mod_tpm, plotCI = TRUE)
 ```
 
@@ -603,7 +603,7 @@ plotStationary(mod_tpm, plotCI = TRUE)
 
 This section will illustrate how to model mean step length as a function of time of day. Any parameter in the observation model (e.g., mean/sd of the step lengths, or turning angle parameters) can be modelled as a function of a covariate,  which allows for the movement behaviour within each discrete state to vary. Here, we will use the same trigonometric function described in the previous section to model mean step length based on the time of day. To do so, we specify `DM`, which will be a list of formulas for the step length (and possibly other) prameters. For simplicity, we will only model the mean, but it is common to also model the standard deviation with the same relationship. We can derive the initial parameters using the `getPar0` function, as described in the previous section.
 
-```{r, message=FALSE, cache=FALSE}
+```{r, message=FALSE, cache=FALSE, attr.source = ".numberLines"}
 set.seed(1)
 
 # define step formula and design matrix
@@ -614,7 +614,7 @@ Par0_5 <- getPar0(model = mod, DM = DM)
 ```
 Now we can fit the HMM with covariate-dependent observation parameters. 
 
-```{r, cache = TRUE, message = FALSE}
+```{r, cache = TRUE, message = FALSE, attr.source = ".numberLines"}
 # fit model
 mod_obs <- fitHMM(data, 
                     nbStates = 2, 
@@ -627,7 +627,7 @@ mod_obs
 
 The regression coefficients are difficult to interpret for a cyclic function, but we can view the estimated relationship for each state with confidence intervals. Note, when the model has covariates, you can include `plotCI = T` to include the 95% confidence intervals on the estimated value.
 
-```{r, fig.keep = 1:2}
+```{r, fig.keep = 1:2, attr.source = ".numberLines"}
 plot(mod_obs, ask = F, plotCI = T, plotTracks = F)
 ```
 
@@ -644,8 +644,8 @@ AIC(mod_obs)  # time of day effect on observation parameters
 This indicates the the model with a time-varying mean step length is the (marginally) best fitting model. 
 
 ## Bonus
-### Pad large gaps with NAs
-We mentioned previously that another strategy to address data gaps is to leave the data streams (i.e., step length and turning angle) as NAs. Typically, we can void sections with $>6$ missing locations. The maximum size of a gap to allow depends on the frequency of the missing data, frequency of locations, study species, and behaviours of interest. Voiding gaps is particularly useful for moderate and large gaps, however, it may often be the best option for small gaps as well. The package `simFrame` has a function `setNA` dedicated to it.
+### Pad gaps with NAs
+We mentioned previously that another strategy to address data gaps is to leave the data streams (i.e., step length and turning angle) as NAs. The maximum size of a gap to allow depends on the frequency of the missing data, frequency of locations, study species, and behaviours of interest. Voiding gaps can be used on its own or in conjunction with splitting tracks. The package `adehabitatLR` has a function `setNA` dedicated to it.
 
 Let us first install and load the package.
 
@@ -654,8 +654,9 @@ library(simFrame)
 library(adehabitatLT)
 ```
 
+We will apply this to the split tracks that we used previously used in the tutorial. Here, instead of using crawl to interpolate missing locations, we are simply creating a dataframe with the missing locations set to NA (i.e., creating a regular grid of observations with some NAs).
 
-```{r setNA}
+```{r setNA, attr.source = ".numberLines"}
 # Create adehabitat object, containing the trajectory padded with NAs
 data_ade <- setNA(ltraj = as.ltraj(xy = data_split[, c("x", "y")], 
                                    date = data_split$time, 
@@ -672,7 +673,7 @@ colnames(data_na) <- c("ID", "x", "y", "time")
 ### Multiple Imputation
 Here, let’s use first fit a CTCRW model on complete tracks (not segmented) that we fit in the tutorial  to simulate 4 tracks using MIfitHMM and plot them over the original track.
 
-```{r MI}
+```{r MI, attr.source = ".numberLines"}
 set.seed(12)
 
 #transform the tracks into an sf object
