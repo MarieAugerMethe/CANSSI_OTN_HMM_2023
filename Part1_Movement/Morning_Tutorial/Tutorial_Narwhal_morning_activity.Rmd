@@ -560,6 +560,7 @@ mod_tpm$mle$beta
 ```
 There are several ways to visualise the relationship. If you use the standard `plot()` function on the fitted HMM, you can visualise the transition probabilities directly. Another option is to plot the stationary state probabilities, which represent how likely the animal is to be in each behaviour at each time of day.
 ```{r}
+plot(mod_tpm, plotTracks = FALSE)
 plotStationary(mod_tpm, plotCI = TRUE)
 ```
 
@@ -573,14 +574,14 @@ Try specifying a model where mean step length depends on time of day (hint: via 
 ```{r, message=FALSE, cache=FALSE}
 set.seed(1)
 
-# define step formula and design matrix
-DM <- list(step = list(mean = , sd = ~1))
+# define mean step formula and design matrix
+DM <- 
 
 # extract initial values from simpler 2-state model with no covariates
 # model refers to the simpler model and DM contains the observation model formula
 Par0_5 <- 
 ```
-Now try fitting the HMM with covariate-dependent observation parameters. You will need the relevant initial parameters and model formula. Note you can use a 2-state model with the same data stream distributions as before. Of course, you can try other model formulations, but this will require using a 3-state model in `getPar0` (or custom-chosen initial parameters). 
+Now try fitting the HMM with covariate-dependent observation parameters. You will need the relevant initial parameters and model formula. Note you can use a 2-state model with the same data stream distributions as before. Of course, you can a 3-state model, but this will require using a 3-state model in `getPar0` (or custom-chosen initial parameters).
 
 ```{r, cache = TRUE, message = FALSE}
 # fit model
@@ -594,7 +595,7 @@ The regression coefficients are difficult to interpret for a cyclic function, bu
 plot(mod_obs, ask = F, plotCI = T, plotTracks = F)
 ```
 
-Try to interpret the model outputs.
+Try to interpret the model outputs. Feel free to try plotting residuals, trying different initial values, etc.
 
 As the observation data is the same between all models, we can use AIC to compare the 2-state models with and without time of day effects. Which is the best, according to AIC?
 
