@@ -76,7 +76,7 @@ setwd("Morning_Tutorial")
 
 HMMs assume that locations are taken at regular time steps and that there is negligible position error. For example, HMMs are adequate to use on GPS tags that take locations at a set temporal frequency (e.g., every $2$ hrs). Without reprocessing, HMMs are not suitable for irregular times series of locations or locations with large measurement error (e.g., you would need to preprocess Argos data before applying HMMs).
 
-Unfortunately, movement of aquatic species is rarely taken at regular time intervals and without measurement error. The data set we will work on, is the movement track of three narwhals tagged with a Fastlock GPS tag for two weeks, provided by Dr. Marianne Marcoux.For simplicity, we only examine the GPS data from two weeks in August 2017 for three individuals. We only use the fastloc GPS data, so we don't have to deal with location error.
+Unfortunately, movement of aquatic species is rarely taken at regular time intervals and without measurement error. The data set we will work on, is the movement track of three narwhals tagged with a Fastlock GPS tag for two weeks, provided by Dr. Marianne Marcoux. For simplicity, we only examine the GPS data from two weeks in August 2017 for three individuals. We only use the fastloc GPS data, so we don't have to deal with location error.
 
 # Import data and initial data processing
 
