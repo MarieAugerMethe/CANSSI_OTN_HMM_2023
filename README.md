@@ -28,4 +28,4 @@ The tutorial will be completed together and will begin with a 30-minute introduc
 - View each lecture in advance of their respective workshop date
 - Create new R script in the CANSSI_OTN_HMM_2023 directory
 - Follow the slides by opening  [slides](./Part1_Movement/Morning_Tutorial/presentation_slides.pdf)
-- Follow along with each days tutorial html files (e.g., "Part1_Movement/Morning_Tutorial.html")
+- Follow along with the tutorial html file  [htm_files](./Part1_Movement/Morning_Tutorial/Tutorial_Narwhal_Morning.html")
