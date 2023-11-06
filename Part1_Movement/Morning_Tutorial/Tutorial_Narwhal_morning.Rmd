@@ -609,8 +609,6 @@ plotStationary(mod_tpm, plotCI = TRUE)
 This section will illustrate how to model mean step length as a function of time of day. Any parameter in the observation model (e.g., mean/sd of the step lengths, or turning angle parameters) can be modelled as a function of a covariate,  which allows for the movement behaviour within each discrete state to vary. Here, we will use the same trigonometric function described in the previous section to model mean step length based on the time of day. To do so, we specify `DM`, which will be a list of formulas for the step length (and possibly other) prameters. For simplicity, we will only model the mean, but it is common to also model the standard deviation with the same relationship. We can derive the initial parameters using the `getPar0` function, as described in the previous section.
 
 ```{r, message=FALSE, cache=FALSE, attr.source = ".numberLines"}
-set.seed(1)
-
 # define step formula and design matrix
 DM <- list(step = list(mean = formula, sd = ~1))
 

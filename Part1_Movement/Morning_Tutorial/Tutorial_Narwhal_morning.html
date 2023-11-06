@@ -1308,13 +1308,11 @@ where 24 refers for the 24 hour period of interest. This relationhip can conveni
 <div id="covariates-in-the-observation-model" class="section level2" number="6.2">
 <h2><span class="header-section-number">6.2</span> Covariates in the observation model</h2>
 <p>This section will illustrate how to model mean step length as a function of time of day. Any parameter in the observation model (e.g., mean/sd of the step lengths, or turning angle parameters) can be modelled as a function of a covariate, which allows for the movement behaviour within each discrete state to vary. Here, we will use the same trigonometric function described in the previous section to model mean step length based on the time of day. To do so, we specify <code>DM</code>, which will be a list of formulas for the step length (and possibly other) prameters. For simplicity, we will only model the mean, but it is common to also model the standard deviation with the same relationship. We can derive the initial parameters using the <code>getPar0</code> function, as described in the previous section.</p>
-<div class="sourceCode" id="cb58"><pre class="sourceCode numberSource r numberLines"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span>
-<span id="cb58-2"><a href="#cb58-2"></a></span>
-<span id="cb58-3"><a href="#cb58-3"></a><span class="co"># define step formula and design matrix</span></span>
-<span id="cb58-4"><a href="#cb58-4"></a>DM <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">step =</span> <span class="fu">list</span>(<span class="at">mean =</span> formula, <span class="at">sd =</span> <span class="sc">~</span><span class="dv">1</span>))</span>
-<span id="cb58-5"><a href="#cb58-5"></a></span>
-<span id="cb58-6"><a href="#cb58-6"></a><span class="co"># extract initial values from simpler 2-state model with no covariates</span></span>
-<span id="cb58-7"><a href="#cb58-7"></a>Par0_5 <span class="ot">&lt;-</span> <span class="fu">getPar0</span>(<span class="at">model =</span> mod, <span class="at">DM =</span> DM)</span></code></pre></div>
+<div class="sourceCode" id="cb58"><pre class="sourceCode numberSource r numberLines"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1"></a><span class="co"># define step formula and design matrix</span></span>
+<span id="cb58-2"><a href="#cb58-2"></a>DM <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">step =</span> <span class="fu">list</span>(<span class="at">mean =</span> formula, <span class="at">sd =</span> <span class="sc">~</span><span class="dv">1</span>))</span>
+<span id="cb58-3"><a href="#cb58-3"></a></span>
+<span id="cb58-4"><a href="#cb58-4"></a><span class="co"># extract initial values from simpler 2-state model with no covariates</span></span>
+<span id="cb58-5"><a href="#cb58-5"></a>Par0_5 <span class="ot">&lt;-</span> <span class="fu">getPar0</span>(<span class="at">model =</span> mod, <span class="at">DM =</span> DM)</span></code></pre></div>
 <p>Now we can fit the HMM with covariate-dependent observation parameters.</p>
 <div class="sourceCode" id="cb59"><pre class="sourceCode numberSource r numberLines"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1"></a><span class="co"># fit model</span></span>
 <span id="cb59-2"><a href="#cb59-2"></a>mod_obs <span class="ot">&lt;-</span> <span class="fu">fitHMM</span>(data, </span>
