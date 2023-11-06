@@ -9,7 +9,6 @@ ggspatial
 lubridate
 sf
 kableExtra
-cowplot
 crawl
 foreach
 rngtools

@@ -65,7 +65,6 @@ library(ggspatial)  # plot the data
 library(lubridate)  # transform numeric vectors to POSIXct objects.
 library(sf)         # spatial data processing
 library(kableExtra) # produce visually appealing tables
-library(cowplot)
 source("utility_functions.R")
 ```
 <p style='text-align: justify;'> 
@@ -208,7 +207,7 @@ data_split <- split_at_gap(data = tracks_gps,
                            shortest_track = 20)
 ```
 
- An alternative to this approach is to fill large gaps with NAs, but this can be problematic if there is any covariate-dependence on the transition probabilities. You can find some code at the end of this tutorial, that handles missing data by setting the gaps to NAs, using the package `simFrame`.
+ An alternative to this approach is to fill large gaps with NAs, but this can be problematic if there is any covariate-dependence on the transition probabilities. You can find some code at the end of this tutorial, that handles missing data by setting the gaps to NAs, using the package `adehabitatLT`.
 
 ## Interpolation (correlated random walk)
 
@@ -231,7 +230,7 @@ Now we can fit the CTCRW to each track segment and create a dataframe of predict
 set.seed(12)
 
 # fit crawl
-crwOut <- crawlWrap(obsData = data_sf, timeStep = "10 mins")
+crwOut <- crawlWrap(obsData = data_sf, timeStep = "10 mins", theta = c(7, 0))
 plot(crwOut, animals = "T172062-3", ask = FALSE)
 
 # Get predicted tracks from crawl output
