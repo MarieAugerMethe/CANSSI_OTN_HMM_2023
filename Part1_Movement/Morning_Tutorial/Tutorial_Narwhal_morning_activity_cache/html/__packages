@@ -1,0 +1,16 @@
+momentuHMM
+sp
+raster
+dplyr
+tidyr
+ggplot2
+ggOceanMaps
+ggspatial
+lubridate
+sf
+kableExtra
+cowplot
+crawl
+foreach
+rngtools
+doRNG
