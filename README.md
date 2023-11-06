@@ -4,7 +4,7 @@
 
   This workshop was developed by Marie Auger-Méthé, Ron Togunov, Fanny Dupont, Natasha Klappstein and Arturo Esquivel for the 2023 CANSSI meeting. The goal of the workshop is to illustrate the application of hidden Markov models (HMMs) to movement data from marine animals to classify behaviours and identify behaviour-specific habitat associations. 
  
-The tutorial will be completed together and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required.
+The tutorial will be completed together, and can be found in the [activity_file](./Part1_Movement/Morning_Tutorial/Tutorial_Narwhal_morning_activity.Rmd) and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required. The tutorial has some guided activities.
 
 ## Workshop learning objectives
 
