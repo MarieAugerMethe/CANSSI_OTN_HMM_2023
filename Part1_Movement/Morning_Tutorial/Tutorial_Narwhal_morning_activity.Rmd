@@ -87,6 +87,11 @@ tracks_gps <- read.csv("data/tracks_gps.csv")%>%
   mutate(time = ymd_hms(time))
 ```
 
+We can have a firt look at the data, to get more familiar with it.
+```{r look}
+head(tracks_gps)
+```
+
 The data we obtain is often quite messy with some records missing information and other records duplicated. We can filter records to keep only complete location data using `!is.na(x) & !is.na(y)`. To remove duplicate records (same time, location, and location class), we will use the `lag` function from `dplyr`, which will use the value from the previous row so that we can compare to the current row.
 
 ```{r remove_missing_or_duplicate_data, warning = FALSE, attr.source = ".numberLines"}
