@@ -76,7 +76,7 @@ setwd("Morning_Tutorial")
 
 HMMs assume that locations are taken at regular time steps and that there is negligible position error. For example, HMMs are adequate to use on GPS tags that take locations at a set temporal frequency (e.g., every $2$ hrs). Without reprocessing, HMMs are not suitable for irregular times series of locations or locations with large measurement error (e.g., you would need to preprocess Argos data before applying HMMs).
 
-Unfortunately, movement of aquatic species is rarely taken at regular time intervals and without measurement error. The data set we will work on, is the movement track of three narwhals tagged with a Fastlock GPS tag for two weeks, provided by Dr. Marianne Marcoux.For simplicity, we only examine the GPS data from two weeks in August 2017 for three individuals. We only use the fastloc GPS data, so we don't have to deal with location error.
+Unfortunately, movement of aquatic species is rarely taken at regular time intervals and without measurement error. The data set we will work on, is the movement track of three narwhals tagged with a Fastlock GPS tag for two weeks, provided by Dr. Marianne Marcoux. For simplicity, we only examine the GPS data from two weeks in August 2017 for three individuals. We only use the fastloc GPS data, so we don't have to deal with location error.
 
 # Import data and initial data processing
 
@@ -85,6 +85,11 @@ First, let's import the narwhal movement data and convert the time column to an 
 ```{r import_tracks, warning=FALSE, attr.source = ".numberLines"}
 tracks_gps <- read.csv("data/tracks_gps.csv")%>%
   mutate(time = ymd_hms(time))
+```
+
+We can have a firt look at the data, to get more familiar with it.
+```{r look}
+head(tracks_gps)
 ```
 
 The data we obtain is often quite messy with some records missing information and other records duplicated. We can filter records to keep only complete location data using `!is.na(x) & !is.na(y)`. To remove duplicate records (same time, location, and location class), we will use the `lag` function from `dplyr`, which will use the value from the previous row so that we can compare to the current row.
@@ -468,7 +473,7 @@ The plots indicate that the model does not fit the time series particularly well
 This could indicate that there are more hidden behavioural states. Let’s try a 3-state HMMs.
 
 
-### Activity 3
+### Activity 2
 Let’s try a 3-state HMMs.
 
 
@@ -538,7 +543,7 @@ Par0_4 <- getPar0(model = mod, formula = formula)
 Par0_4
 ```
 
-### Activity 4
+### Activity 3
 
 Try fitting the model with covariate-dependent transition probabilities. The `formula` argument defines the model formula for the transition probabilities, and we need to set the correct initial parameters (i.e., `Par0` for the observation parameters and `beta0` for the transition probability model). 
 ```{r, message = FALSE, cache = TRUE}
@@ -562,7 +567,7 @@ plotStationary(mod_tpm, plotCI = TRUE)
 
 This section will illustrate how to model mean step length as a function of time of day. Any parameter in the observation model (e.g., mean/sd of the step lengths, or turning angle parameters) can be modelled as a function of a covariate,  which allows for the movement behaviour within each discrete state to vary. Here, we will use the same trigonometric function described in the previous section to model mean step length based on the time of day. To do so, we specify `DM`, which will be a list of formulas for the step length (and possibly other) parameters. For simplicity, we will only model the mean, but it is common to also model the standard deviation with the same relationship. We can derive the initial parameters using the `getPar0` function, as described in the previous section.
 
-### Activity 5
+### Activity 4
 Try specifying a model where mean step length depends on time of day (hint: via the same trigonomentric function `cosinor()` used in the previous section). You can use `getPar0` to derive initial parameters (you will need to specify the simpler model and the observation model formula). 
 
 ```{r, message=FALSE, cache=FALSE}
@@ -602,12 +607,11 @@ AIC(mod_obs)  # time of day effect on observation parameters
 
 ## Bonus
 ### Pad large gaps with NAs
-We mentioned previously that another strategy to address data gaps is to leave the data streams (i.e., step length and turning angle) as NAs. Typically, we can void sections with $>6$ missing locations. The maximum size of a gap to allow depends on the frequency of the missing data, frequency of locations, study species, and behaviours of interest. Voiding gaps is particularly useful for moderate and large gaps, however, it may often be the best option for small gaps as well. The package `simFrame` has a function `setNA` dedicated to it.
+We mentioned previously that another strategy to address data gaps is to leave the data streams (i.e., step length and turning angle) as NAs. Typically, we can void sections with $>6$ missing locations. The maximum size of a gap to allow depends on the frequency of the missing data, frequency of locations, study species, and behaviours of interest. Voiding gaps is particularly useful for moderate and large gaps, however, it may often be the best option for small gaps as well. The package `adehabitatLT` has a function `setNA` dedicated to it.
 
 Let us first install and load the package.
 
 ```{r package setNA,include=FALSE}
-library(simFrame)
 library(adehabitatLT)
 ```
 

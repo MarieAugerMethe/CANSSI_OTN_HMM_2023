@@ -86,7 +86,7 @@ need to preprocess Argos data before applying HMMs).
 Unfortunately, movement of aquatic
 species is rarely taken at regular time intervals and without
 measurement error. The data set we will work on, is the
-movement track of three narwhals tagged with a Fastlock GPS tag for two weeks, provided by Dr. Marianne Marcoux.For simplicity, we only examine the GPS data from two weeks in August 2017 for three individuals. We only use the fastloc GPS data, so we don't have to deal with location error.
+movement track of three narwhals tagged with a Fastlock GPS tag for two weeks, provided by Dr. Marianne Marcoux. For simplicity, we only examine the GPS data from two weeks in August 2017 for three individuals. We only use the fastloc GPS data, so we don't have to deal with location error.
 </p>
 # Import data and initial data processing
 <p style='text-align: justify;'> 
@@ -97,6 +97,12 @@ First, let's import the narwhal movement data and convert the time column to an 
 tracks_gps <- read.csv("data/tracks_gps.csv")%>%
   mutate(time = ymd_hms(time))
 ```
+
+We can have a firt look at the data, to get more familiar with it.
+```{r look}
+head(tracks_gps)
+```
+
 <p style='text-align: justify;'>
 The data we obtain is often quite messy with some records missing information and other records duplicated. We can filter records to keep only complete location data using `!is.na(x) & !is.na(y)`. To remove duplicate records (same time, location, and location class), we will use the `lag` function from `dplyr`, which will use the value from the previous row so that we can compare to the current row.
 </p>
@@ -649,7 +655,6 @@ We mentioned previously that another strategy to address data gaps is to leave t
 Let us first install and load the package.
 
 ```{r package setNA,include=FALSE}
-library(simFrame)
 library(adehabitatLT)
 ```
 
