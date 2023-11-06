@@ -1,11 +1,10 @@
-# DFO 2022 Hidden Markov Model Workshop
+# CANSSI OTN Hidden Markov Model Workshop 2023
 
 ## Description and format
 
-  This workshop was developed by Marie Auger-Méthé, Vianey Leos Barajas, Ron Togunov, and Marco Antonio Gallegos Herrada for the Department of Fisheries and Oceans, Canada in October 2022. The goal of the workshop is to illustrate the application of hidden Markov models (HMMs) to movement data from marine animals to classify behaviours and identify behaviour-specific habitat associations. 
-
-The workshop will be composed of three one-hour lectures and three three-hour tutorials in R. These lecture can be found on our youtube channel: https://www.youtube.com/playlist?list=PLYkxNfKA95Pzcp5xfJdQKl6xLQoXrP39x  
-Each tutorial will be completed together over zoom and will begin with a 10-minute introduction over Zoom that will provide an overview of the tutorial objectives. 
+  This workshop was developed by Marie Auger-Méthé, Ron Togunov, Fanny Dupont, Natasha Klappstein and Arturo Esquivel for the 2023 CANSSI meeting. The goal of the workshop is to illustrate the application of hidden Markov models (HMMs) to movement data from marine animals to classify behaviours and identify behaviour-specific habitat associations. 
+ 
+The tutorial will be completed together and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required.
 
 ## Workshop learning objectives
 
@@ -13,11 +12,8 @@ Each tutorial will be completed together over zoom and will begin with a 10-minu
 - Selecting appropriate temporal resolution for HMM analysis
 - Interpolating missing locations (linear, crw, path segmentation, and multiple imputation)
 - Fit HMMs to animal movement data to identify behaviours
-- Integrating diving data-streams to identify more complex behaviours
 - Incorporate covariates on state transition probability to identify conditions that promote different behaviours
 - Integrating covariates on emission probabilities to model biased random walks 
-- Modelling behaviour using accelerometer data
-- Fitting hierarchical HMMs
 
 ## Prerequisite experience
 
@@ -30,5 +26,5 @@ Each tutorial will be completed together over zoom and will begin with a 10-minu
 - Install all the required packages as described in 0_Installing_packages.Rmd
 - Make sure all packages are up-to-date as older versions may not work
 - View each lecture in advance of their respective workshop date
-- Create new R script in the DFO_HMM_2022 directory
-- Follow along with each days tutorial html files (e.g., "Day1/HMM_Tutorial_Day1.html")
+- Create new R script in the CANSSI_OTN_HMM_2023 directory
+- Follow along with each days tutorial html files (e.g., "Part1_Movement/Morning_Tutorial.html")
