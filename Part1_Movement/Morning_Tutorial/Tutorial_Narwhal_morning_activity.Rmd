@@ -87,7 +87,7 @@ tracks_gps <- read.csv("data/tracks_gps.csv")%>%
   mutate(time = ymd_hms(time))
 ```
 
-We can have a firt look at the data, to get more familiar with it.
+We can have a first look at the data, to get more familiar with it.
 ```{r look}
 head(tracks_gps)
 ```
