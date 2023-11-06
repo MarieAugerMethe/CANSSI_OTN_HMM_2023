@@ -646,7 +646,7 @@ AIC(mod_tpm)  # time of day effect on transition probabilities
 AIC(mod_obs)  # time of day effect on observation parameters
 ```
 
-This indicates the the model with a time-varying mean step length is the (marginally) best fitting model. 
+This indicates the the model with a time-varying mean step length is the best fitting model. 
 
 ## Bonus
 ### Pad gaps with NAs
