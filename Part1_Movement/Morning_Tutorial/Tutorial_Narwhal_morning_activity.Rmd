@@ -572,8 +572,6 @@ This section will illustrate how to model mean step length as a function of time
 Try specifying a model where mean step length depends on time of day (hint: via the same trigonomentric function `cosinor()` used in the previous section). You can use `getPar0` to derive initial parameters (you will need to specify the simpler model and the observation model formula). 
 
 ```{r, message=FALSE, cache=FALSE}
-set.seed(1)
-
 # define mean step formula and design matrix
 DM <- 
 
