@@ -1,4 +1,4 @@
-# CANSSI OTN Hidden Markov Model: ** Morning Tutorial **
+# CANSSI OTN Hidden Markov Model: *Morning Tutorial*
 
 Hi, welcome to the morning tutorial. It will be completed together, and can be found in the [activity_file](./Morning_Tutorial/Activity/Tutorial_Narwhal_morning_activity.Rmd) and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required. The tutorial has some guided activities.
 
