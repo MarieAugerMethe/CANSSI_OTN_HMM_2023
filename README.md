@@ -6,7 +6,7 @@
 
   
 ## Morning tutorial 
-The tutorial will be completed together, and can be found in the [activity_file](./Morning_Tutorial/Activity/Tutorial_Narwhal_morning_activity.Rmd) and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required. The tutorial has some guided activities.
+The tutorial will be completed together, and can be found in the [activity](./Morning_Tutorial/Activity/Tutorial_Narwhal_morning_activity.Rmd) folder and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required. The tutorial has some guided activities.
 
 ## Workshop learning objectives
 
@@ -30,7 +30,6 @@ The tutorial will be completed together, and can be found in the [activity_file]
 - View each lecture in advance of their respective workshop date
 - Create new R script in the CANSSI_OTN_HMM_2023 directory
 - Follow the slides by opening  [slides](./Morning_Tutorial/presentation_slides.pdf)
-- Follow along with the tutorial [html_file](./Morning_Tutorial/Narwhal/Tutorial_Narwhal_morning.html)
-
+- If you get lost, you can follow along with the completed tutorial [html](./Morning_Tutorial/Narwhal/Tutorial_Narwhal_morning.html) file.
 
 ## Afternoon Tutorial
