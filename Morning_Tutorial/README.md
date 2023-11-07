@@ -3,7 +3,7 @@
 Hi, welcome to the morning tutorial. It will be completed together, and can be found in the [activity_file](./Morning_Tutorial/Activity/Tutorial_Narwhal_morning_activity.Rmd) and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required. The tutorial has some guided activities.
 
 <img src="PaulNicklen.jpeg" width="500"> 
-@credits: Paul Nicklen
+Photo Credits: Paul Nicklen
 
 
 We will look at a narwhal dataset provided by Dr. Marianne Marcoux. The narwhals have been tagged in Tremblay Sound, Nunavut. We will look at their movement over a two-week duration. Let's get started.
