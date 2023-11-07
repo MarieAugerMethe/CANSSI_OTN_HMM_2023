@@ -2,9 +2,11 @@
 
 ## Description and format
 
-  This workshop was developed by Marie Auger-Méthé, Ron Togunov, Fanny Dupont, Natasha Klappstein and Arturo Esquivel for the 2023 CANSSI meeting. The goal of the workshop is to illustrate the application of hidden Markov models (HMMs) to movement data from marine animals to classify behaviours and identify behaviour-specific habitat associations. 
- 
-The tutorial will be completed together, and can be found in the [activity_file](./Part1_Movement/Morning_Tutorial/Tutorial_Narwhal_morning_activity.Rmd) and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required. The tutorial has some guided activities.
+  This workshop was developed by Marie Auger-Méthé, Ron Togunov, Fanny Dupont, Natasha Klappstein and Arturo Esquivel for the 2023 CANSSI meeting. The goal of the workshop is to illustrate the application of hidden Markov models (HMMs) to movement data from marine animals to classify behaviours and identify behaviour-specific habitat associations. It is divided in two parts: morning and afternoon.
+
+  
+## Morning tutorial 
+The tutorial will be completed together, and can be found in the [activity_file](./Morning_Tutorial/Activity/Tutorial_Narwhal_morning_activity.Rmd) and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required. The tutorial has some guided activities.
 
 ## Workshop learning objectives
 
@@ -27,5 +29,8 @@ The tutorial will be completed together, and can be found in the [activity_file]
 - Make sure all packages are up-to-date as older versions may not work
 - View each lecture in advance of their respective workshop date
 - Create new R script in the CANSSI_OTN_HMM_2023 directory
-- Follow the slides by opening  [slides](./Part1_Movement/Morning_Tutorial/presentation_slides.pdf)
-- Follow along with the tutorial [htm_file](./Part1_Movement/Morning_Tutorial/Tutorial_Narwhal_morning.html)
+- Follow the slides by opening  [slides](./Morning_Tutorial/presentation_slides.pdf)
+- Follow along with the tutorial [html_file](./Morning_Tutorial/Narwhal/Tutorial_Narwhal_morning.html)
+
+
+## Afternoon Tutorial
