@@ -43,15 +43,6 @@ The primary learning objectives in this first tutorial are to:
   - Use the Akaike Information Criteria for model selection
   - Practice what you've learned by working on exercises
 
-<!-- Apply the acquired knowledge by completing exercises. -->
-  
-<!-- The goal of this tutorial is to explore how to fit hidden Markov models to accelerometer data, incorporate covariates into the transition probabilities, and use a classic model selection criteria to select the "best" model out of different candidates. -->
-
-<!-- The goal of this tutorial is to explore fitting hidden Markov models to accelerometer data, incorporate covariates into the transition probabilities, and select for the best candidate model. We use 4 days of acceleration data obtained from a free-ranging blacktip reef shark at Palmyra Atoll in the central Pacific Ocean (data taken from Leos-Barajas et al. 2017). Specificly, the following topics wil be covered throughout this tutorial: -->
-
-  <!-- - Resampling data (Down sampling) (???) -->
-
-
 # Accelerometer data
 
 Accelerometer devices measure up to three axes, which can be described relative to the body of the animal: longitudinal (surge), lateral (sway) and dorsoventral (heave). These devices are becoming more prevalent in the fields of animal biologging data as they provide a means of measuring activity in a meaningful and quantitative way. From tri-axial acceleration data, we can also derive several measures that summarize effort or exertion and relate acceleration  to activity levels such as overall dynamic body acceleration (ODBA) and vectorial dynamic body acceleration (VeDBA).
@@ -68,9 +59,6 @@ ODBA and VeDBA can be used to reduce the dimensionality of three-dimension accel
 ## Blacktip Reef Shark data
 
 In this tutorial, we will be analyzing four days' worth of acceleration data from a free-ranging blacktip reef shark in the Palmyra Atoll located in the central Pacific Ocean. The acceleration data was collected from a 117-cm female shark (*Carcharhinus melanopterus*) species using a multisensor package. This package was attached to the shark's dorsal fin and recorded three-dimensional acceleration data at a rate of 20 Hz. It also recorded depth and water temperature at a rate of 1 Hz. After four days, the package, which was equipped with a VHF transmitter, detached from the shark and could be retrieved from the water surface (Papastamatiou et al. 2015). To assess the shark's active behavior, the authors calculated the average ODBA over 1-second intervals, resulting in a dataset comprising 320,214 observations. Consequently, the variables in the dataset consist of time of day, water temperature (in Celsius), depth (in meters), and ODBA.
-
-<!-- In this tutorial, we will work with four days of acceleration data gathered from a free-ranging blacktip reef shark at Palmyra Atoll in the central Pacific Ocean. Acceleormetry data was obtained from a free-ranging blacktip reef shark (*Carcharhinus melanopterus*) at Palmyra Atoll in the central Pacific Ocean (data taken from Leos-Barajas et al. 2017). A multisensor package was attached to the dorsal fin of a 117-cm female shark. The multisensor data-logger recorded three-dimensional acceleration (at 20 Hz), depth and water temperature (at 1 Hz) and was embedded in a foam float which detached from the shark after 4 days (Papastamatiou et al. 2015). The package also contained a VHF transmitter allowing recovery at the surface -->
-<!-- after detachment. In order to examine active behaviour, the average ODBA of the shark over 1-second intervals was calculated. This resulted in 321 815 observations. As a result, the variables for the dataset are the time of day, water temperature, depth (in meters) and the ODBA. -->
 
 ```{r}
 # R packages that will be used for this tutorial
@@ -115,11 +103,6 @@ BlacktipB_aux %>%
 Because accommodating extreme values can pose a problem for identification of an adequate state-dependent distribution in our HMM, we removed them from the data set. However, note that in general, deciding whether to remove extreme values or not will more likely depend on whether we find appropriate distributional forms that can accommodate them. Generally, we need to make sure that extreme values are in fact some artefact of the data collection process, not representative of a behavior of interest, or inconsistent with what we are trying to capture as well. Removing data is not good general practice but instead we can assess on a case-by-case basis.
 
 While high-resolution data is often preferred for its ability to provide extensive information through detailed observations, it's important to consider the potential drawbacks, as highlighted in the animal movement tutorial. One significant disadvantage of fine-scale resolution is the high autocorrelation among observations made at smaller time intervals. This increased autocorrelation can present challenges when fitting a HMM because the model may not adequately account for it. In this tutorial, we will specifically work with 1-minute average depth, temperature, and ODBA values. This significantly reduces both the time required for the model fitting process and the autocorrelation between observations. Furthermore, since we are using 1-minute averages, irregular emissions are not a concern. Finally, we will modify the variable associated with the time of day in order to be properly formatted.
-
-<!-- High-resolution data is often preferred due to the wealth of information it provides, as it involves the collection of more detailed observations. However, as mentioned in the animal movement tutorial, there may be drawbacks of fine-scale resolution, as observations being made at smaller time intervals tend to exhibit higher autocorrelation among them. This high autocorrelation can pose challenges when fitting a HMM because it might not be adequately captured within the model. -->
-
-<!-- Aditionally, for the interest of time, **in this tutorial we will be working with the 1-minute average depth, temperature and ODBA values** -- this decrease significantly the amount of time required for the model fitting stage. As well, since we will be working with the 1-minute average, we don't have to worry about irregular emissions. Lastly, we will process the variable associated to the time of day so it has a proper format. -->
-
 
 ```{r}
 # Transform into proper time format and take 1-min avg
@@ -197,54 +180,19 @@ fit1
 ```
 
 
-Note that the value of the maximum log-likelihood is positive, which may seem unusual, as maximum likelihood values are typically negative. This positive value suggests that the likelihood surface contains very prominent peaks. Maybe data transformation can provide some insight about what's going on with this inusual log-likelihood value. We can make use of the following property of the Gamma distribution: if $X  \sim Gamma(\alpha,\beta)$, then $cX  \sim Gamma(\alpha,\beta/c)$. Consequently, by scaling our observations up to a constant factor, the estimated parameters should correspond to those of the original data adjusted for the scaling factor. Therefore, if we attempt to fit the same model with a data transformation for the ODBA values, we should obtain identical parameter estimations, except for the scaled parameters. In this case, we chose $c=100$ as the scale factor. 
-
-<!-- since the mean is $\alpha/\beta$ and the standard deviation is given by $\sqrt{\alpha}/\beta$, we have that the mean and standard deviaton for $cX$ would be $\alpha/(\beta/c) = c (\alpha/\beta) $ and  $\sqrt{\alpha}/(\beta / c) = c \sqrt{\alpha}$ $/ (\beta / c) = c \sqrt{\alpha}/\beta $. In other words -->
-
-```{r, cache=TRUE}
-c=100
-BlacktipB_1min$cODBA_avg = c*BlacktipB_1min$ODBA_avg
-BlacktipBData = prepData(BlacktipB_1min,coordNames = NULL)
-cmu0 = c*mu0 # initial values for the mean of each behavioural state
-csigma0 = c*sigma0 # initial values for the standard deviation of each behavioural state
-cfit1 = fitHMM(BlacktipBData,
-              nbStates=2,
-              stateNames = stateNames,
-              dist=list(cODBA_avg="gamma"),
-              Par0 = list(cODBA_avg=c(cmu0,csigma0)))
-
-cfit1
-```
-
-As expected, the estimates for the mean and the standard deviaton are the same (up to the scale factor), and all the other estimates, transtition probabilities and initial state distribution remain the same! However, note that the maximum log-likelihood is different. In this case, transforming the observed values results in 'flattening' the likelihood surface, but global and local maximas remain the same, therefore we have the same parameter estimates for the transition probabilities and initial state distribution. For the rest of this tutorial, we will be modelling the scaled 1-minute average ODBA values.
-
-```{r}
-
-# Negative log-likelihood 
-list(original_ODBA = fit1$mod$minimum, scaled_ODBA = cfit1$mod$minimum)
-
-# Parameter estimates for state-dependent distribution related to the ODBA data stream 
-list(original_ODBA = fit1$mle$ODBA_avg, scaled_ODBA = cfit1$mle$cODBA_avg)
-
-# Parameter estimates the initial state distribution 
-list(original_ODBA = fit1$mle$delta, scaled_ODBA = cfit1$mle$delta)
-
-# Parameter estimates for the transtition probabilities
-list(original_ODBA = fit1$mle$gamma, scaled_ODBA = cfit1$mle$gamma)
-
-```
+Note that the value of the maximum log-likelihood is positive, which may seem unusual, as maximum likelihood values are typically negative. This positive value suggests that the likelihood surface contains very prominent peaks. 
 
 Using the `plot` flunction, we can visualize the state-dependent distributions using the estimated parameters. The plot below provides a depiction of low-activity and high-activity behaviors. In this visualization, the low-activity distribution exhibits higher density closer to zero, while the high-activity behavior shifts its probability mass towards higher (scaled) 1-minute average ODBA values.
 
 ```{r}
-plot(cfit1,breaks = 80)
+plot(fit1,breaks = 80)
 ```
 
 Let's examine the pseudo-residuals. By using the `plotPR` function, we can visualize these pseudo-residuals. This function displays the pseudo-residual time series, qq-plots, and autocorrelation functions (ACF). It's important to note that pseudo-residuals are a specific type of model residuals that consider the interdependence of observations. Pseudo-residuals are computed for each data stream, and in our case, we are only considering ODBA values, resulting in a single plot of pseudo-residuals. It's worth remembering that when the fitted model is appropriate, the pseudo-residuals should adhere to a standard normal distribution. However, based on the following plots, it appears that the model doesn't fit well for high (scaled) ODBA values. Furthermore, the ACF plot indicates a significant autocorrelation between observations in the (scaled) ODBA time series, suggesting that the model fails to capture this autocorrelation. Notably, there is a substantial level of autocorrelation and some deviation from normality.
 
 
 ```{r, fig.height= 4, fig.width=12}
-plotPR(cfit1)
+plotPR(fit1)
 ```
 
 We can also compute the most probable sequence of states. As previously mentioned, the parameter estimates for transition probabilities and initial state distribution remain consistent for both the original ODBA stream and the scaled ODBA stream, resulting in identical sequences of states.
@@ -264,24 +212,6 @@ BlacktipB_1min %>% mutate(day = day(Time)) %>%
 
 ```
 
-```{r, fig.height= 6, fig.width=12,cache=TRUE}
-# identify most likely state using the Viterbi algorithm (scaled ODBA)
-BlacktipB_1min$cstate <- factor(viterbi(cfit1))
-
-# proportion of the behaviour states during the observed period
-table(BlacktipB_1min$cstate)/length(BlacktipB_1min$cstate)
-
-BlacktipB_1min %>% mutate(day = day(Time)) %>%
-  ggplot(aes(Time,cODBA_avg)) +
-  #facet_wrap(~day,scales = "free_x") +
-  geom_line(alpha=.1) +
-  geom_point(aes(shape=cstate,color=cstate)) + ylab("10*ODBA (1-min average)")
-
-```
-
-
-<!-- One key step when fitting models is to confirm whether the parameter estimates correspond to the actual MLE (global maximum). HMMs can be sensitive to initial values, so a procedure to check if the estimations are reliable are needed. The argument `retryFits` indicates how many times initial values are jittered and after that, model fitting is done. Here, we try to refit the model 10 times, in order to see we found the global maximum. This can take time to run. -->
-
 An essential stage in model fitting is to verify if the parameter estimates correspond to the actual Maximum Likelihood Estimation (MLE). HMMs can be susceptible to initial values, so we need a procedure to assess the reliability of the parameter estimates. The argument `retryFits` in `fitHMM` specifies the number of times initial values are perturbed before model fitting takes place. Here, we attempt to refit the model 10 times to assess whether we have identified the global maximum. This can take time to run.
 
 ```{r, cache=TRUE}
@@ -289,75 +219,13 @@ set.seed(147)
 fit1_s2 <- fitHMM(BlacktipBData,
                   nbState = 2,
                   stateNames = stateNames,
-                  dist=list(cODBA_avg="gamma"),
-                  Par0 = list(cODBA_avg=c(cmu0,csigma0)),
+                  dist=list(ODBA_avg="gamma"),
+                  Par0 = list(ODBA_avg=c(mu0,sigma0)),
                   retryFits=10)
 fit1_s2
 ```
 
 Seems nothing changed at all!
-
-
-Now, we try a different set of initial values such that these are close to each other. Specifically, for the mean parameters, we provide values that are closer. Even when doing this, the outcome is consistent with the same model fitting, signifying that our inference process is robust. 
-
-<!-- It's important to emphasize that regardless of the initial values, the coefficients should be the same. Indeed, we can observe that the estimated coefficients and log-likelihood values are still similar. -->
-
-```{r, cache=TRUE}
-mu2 = c*c(.04,.06) # This gives 4 and 6 as initial values for estimating the mean parameters 
-sigma2 = c*c(.02,.02) # This gives 2 and 2 as initial values for estimating the mean parameters
-
-fit1_s3 <- fitHMM(BlacktipBData,
-                  nbState = 2,
-                  stateNames = stateNames,
-                  dist=list(cODBA_avg="gamma"),
-                  Par0 = list(cODBA_avg=c(mu2,sigma2)))
-
-fit1_s3
-```
-
-
-Finally, let's go further by introducing a high perturbation to the initial values. Specifically, instead of 5 and 9, we will use 0.1 and 100 for the mean parameters. Additionally, for the initial values related to the standard deviation, we will set them at 100 for each state-dependent distribution. In this case, the parameter estimates remain unchanged except for one significant change: the states have swapped. In other words, the parameter initially associated with state 1 has now shifted to state 2, and vice versa. Consequently, everything has transitioned to the location of the other state, while otherwise remaining unaltered.
-
-```{r, cache=TRUE}
-mu1 = c*c(.001,1)
-sigma1 = c*c(1,1)
-
-fit1_s2_long <- fitHMM(BlacktipBData,
-                  nbState = 2,
-                  stateNames = stateNames,
-                  dist=list(cODBA_avg="gamma"),
-                  Par0 = list(cODBA_avg=c(mu1,sigma1)))
-
-fit1_s2_long
-```
-
-By employing the `plotPR` function, we can observe that the pseudo-residuals remained consistent, despite the state parameter switching.
-
-```{r, fig.height= 4, fig.width=12}
-plotPR(fit1_s2_long)
-```
-
-When calculating the most likely sequence of states (Viterbi sequence), it's noticeable that the values have been reversed. This is due to the model fitting associating state 1 with "high-activity" behavior and state 2 with "low-activity" behavior.
-
-```{r, fig.height= 6, fig.width=12}
-# identify most likely state using the Viterbi algorithm
-BlacktipB_1min$state_wildPar0 <- factor(viterbi(fit1_s2_long))
-
-# proportion of the behaviour states during the observed period
-table(BlacktipB_1min$state_wildPar0)/length(BlacktipB_1min$state_wildPar0)
-
-# BlacktipB_1min %>% mutate(day = day(Time)) %>% 
-#   ggplot(aes(Time,state_wildPar0)) + facet_wrap(~day) + geom_point()
-
-BlacktipB_1min %>% mutate(day = day(Time)) %>%
-  ggplot(aes(Time,ODBA_avg)) +
-  #facet_wrap(~day,scales = "free_x") +
-  geom_line(alpha=.1) +
-  geom_point(aes(shape=state_wildPar0,color=state_wildPar0))
-
-
-```
-
 
 During the model fitting process, we pointed out the absence of covariates in the transition probabilities. Additionally, the ACF plot indicated a high autocorrelation between observations that the model failed to capture. Perhaps by considering the inclusion of other data streams, we could potentially reduce this autocorrelation. To explore this, we can investigate the incorporation of covariates into the state-switching dynamics to observe the potential outcomes.
 
@@ -369,14 +237,14 @@ For example, we might be interested in including the time-of-day for each record
 
 ```{r, cache=TRUE}
 # Add tod covariate
-BlacktipB_1min$tod = hour(BlacktipB_1min$Time) + minute(BlacktipB_1min$Time) / 60
+BlacktipB_1min$tod = hour(BlacktipB_1min$Time) + minute(BlacktipB_1min$Time)/60
 
 tod <- BlacktipB_1min$tod
 
 # Prep data 
 BlacktipBData = prepData(BlacktipB_1min,coordNames = NULL, covNames = "tod")
 
-formula = ~ cosinor(tod, period = 1440)
+formula = ~ cosinor(tod, period = 24)
 ```
 
 If our aim is to account for the effect that the time of day may have on the probability of switching between states then we incorporate the `tod` covariate in the transition probabilities. We demonstrate this based on the previously fitted model `fit1`. We use `getPar0` to specify our initial parameters based on the estimated parameters of `fit1`.
@@ -405,7 +273,6 @@ plotStationary(fit4, plotCI = TRUE)
 ```
 
 We observe that the shark is more likely to be in the low activity state near midday and more likely to be in the high activity state outside these hours. 
-
 
 Alternatively, our aim may be to account for the effect that the time of day may have on observed acceleration (i.e., ODBA) then we incorporate the `tod` covariate in the state-dependent distribution.
 
@@ -454,8 +321,6 @@ plotPR(fit5)
 
 There doesn't seem to be major differences in the qq-plot and acf-plot of the pseudo-residual although there is still the residual autocorrelation and deviations in the upper tail. Perhaps including more informative covariates or increasing the number of states might help. 
 
-
-
 # Model section: Akaike Information Criteria (AIC)
 
 The Akaike Information Criteria (AIC) provides a measure of the trade-off between model fit and complexity. It is commonly used as a model selection criterion to select for the most suitable model among a set of candidate models. Lower AIC scores indicate a better balance between model fit and complexity. 
@@ -470,6 +335,65 @@ data.frame(AIC(fit1),
 
 We see that incorporating covariates in either the state-dependent distribution or transition probabilities lowers the AIC. `fit4` has the lowest AIC which suggests that it might most suited for modelling this data among the models under consideration.
 
+# Bonus
+
+## Going further on testing model robustness
+
+Now, we try a different set of initial values such that these are close to each other. Specifically, for the mean parameters, we provide values that are closer. Even when doing this, the outcome is consistent with the same model fitting, signifying that our inference process is robust. 
+
+```{r, cache=TRUE}
+mu2 = c(.04,.06) # This gives 4 and 6 as initial values for estimating the mean parameters 
+sigma2 = c(.02,.02) # This gives 2 and 2 as initial values for estimating the mean parameters
+
+fit1_s3 <- fitHMM(BlacktipBData,
+                  nbState = 2,
+                  stateNames = stateNames,
+                  dist=list(ODBA_avg="gamma"),
+                  Par0 = list(ODBA_avg=c(mu2,sigma2)))
+
+fit1_s3
+```
+
+
+Finally, let's go further by introducing a high perturbation to the initial values. Specifically, instead of .05 and .09, we will use 0.001 and 1 for the mean parameters. Additionally, for the initial values related to the standard deviation, we will set them at 1 for each state-dependent distribution. In this case, the parameter estimates remain unchanged except for one significant change: the states have swapped. In other words, the parameter initially associated with state 1 has now shifted to state 2, and vice versa. Consequently, everything has transitioned to the location of the other state, while otherwise remaining unaltered.
+
+```{r, cache=TRUE}
+mu1 = c(.001,1)
+sigma1 = c(1,1)
+
+fit1_s2_long <- fitHMM(BlacktipBData,
+                  nbState = 2,
+                  stateNames = stateNames,
+                  dist=list(ODBA_avg="gamma"),
+                  Par0 = list(ODBA_avg=c(mu1,sigma1)))
+
+fit1_s2_long
+```
+
+By employing the `plotPR` function, we can observe that the pseudo-residuals remained consistent, despite the state parameter switching.
+
+```{r, fig.height= 4, fig.width=12}
+plotPR(fit1_s2_long)
+```
+
+When calculating the most likely sequence of states (Viterbi sequence), it's noticeable that the values have been reversed. This is due to the model fitting associating state 1 with "high-activity" behavior and state 2 with "low-activity" behavior.
+
+```{r, fig.height= 6, fig.width=12}
+# identify most likely state using the Viterbi algorithm
+BlacktipB_1min$state_wildPar0 <- factor(viterbi(fit1_s2_long))
+
+# proportion of the behaviour states during the observed period
+table(BlacktipB_1min$state_wildPar0)/length(BlacktipB_1min$state_wildPar0)
+
+
+BlacktipB_1min %>% mutate(day = day(Time)) %>%
+  ggplot(aes(Time,ODBA_avg)) +
+  geom_line(alpha=.1) +
+  geom_point(aes(shape=state_wildPar0,color=state_wildPar0))
+
+
+```
+
 
 
 # Exercises
@@ -480,6 +404,4 @@ We see that incorporating covariates in either the state-dependent distribution 
 $$ $$
 2. For the 2-state HMM, try to incorporate another variables as covariates (consider the 1-minute average temperature and depth variables). Fit this new model helping yourself from the code above. 
     - What are the AIC and the log-likelihood values? How are these different from the values related to the second model fitted. Based on the Akaike Information Criteria, which model seems to be the "best"? 
-
-<!-- **Note:** In the case that you have your own data, feel free to use the code provided for th blacktip shark data analysis and adapt it to analyse your data. Explore! -->
 
