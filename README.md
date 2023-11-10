@@ -4,6 +4,9 @@
 
 This workshop was developed by Fanny Dupont, Natasha Klappstein, Arturo Esquivel, Marco Gallegos Herrada, Vinky Wang, Eric Ste-Marie, Ron Togunov, Vianey Leos Barajas, and Marie Auger-Méthé, for the 2023 CANSSI meeting and OTN ERC workshop. The goal of the workshop is to illustrate how hidden Markov models (HMMs) can be used to classify behaviours and identify behaviour-specific habitat associations using a range of movement and biologging data. It is divided in two parts: morning and afternoon.
 
+## Pre workshop preparation
+
+Before the workshop, please read the instruction the [0_Installing_packages](0_Installing_packages.html) files. Some of the packages can be tricky to install, so please install them before the workshop.
   
 ## Morning tutorial 
 The tutorial will be completed together, and can be found in the [activity](./Morning_Tutorial/Activity/Tutorial_Narwhal_morning_activity.Rmd) folder and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required. The tutorial has some guided activities.
