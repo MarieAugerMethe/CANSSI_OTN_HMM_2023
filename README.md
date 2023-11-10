@@ -33,3 +33,13 @@ The tutorial will be completed together, and can be found in the [activity](./Mo
 - If you get lost, you can follow along with the completed tutorial [html](./Morning_Tutorial/Narwhal/Tutorial_Narwhal_morning.html) file.
 
 ## Afternoon Tutorial
+
+The session will begin with a 20-minute introduction to accelerometer data then move into a live coding demonstration of how a basic HMM can be fit to acceleration data. There will be exercises at the end and the solutions will be posted the following day. 
+
+## Workshop learning objectives 
+
+  - Fit a basic HMM to accelerometer data using `momentuHMM`
+  - Incorporating and interpreting covariates on behaviour transition probabilities
+  - Visualizing the Depth time series with decoded states
+  - Use the Akaike Information Criteria for model selection
+  - Practice what you've learned by working on exercises 
