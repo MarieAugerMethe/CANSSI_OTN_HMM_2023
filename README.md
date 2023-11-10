@@ -2,7 +2,7 @@
 
 ## Description and format
 
-  This workshop was developed by Marie Auger-Méthé, Ron Togunov, Fanny Dupont, Natasha Klappstein and Arturo Esquivel for the 2023 CANSSI meeting. The goal of the workshop is to illustrate the application of hidden Markov models (HMMs) to movement data from marine animals to classify behaviours and identify behaviour-specific habitat associations. It is divided in two parts: morning and afternoon.
+This workshop was developed by Fanny Dupont, Natasha Klappstein, Arturo Esquivel, Marco Gallegos Herrada, Vinky Wang, Eric Ste-Marie, Ron Togunov, Vianey Leos Barajas, and Marie Auger-Méthé, for the 2023 CANSSI meeting and OTN ERC workshop. The goal of the workshop is to illustrate how hidden Markov models (HMMs) can be used to classify behaviours and identify behaviour-specific habitat associations using a range of movement and biologging data. It is divided in two parts: morning and afternoon.
 
   
 ## Morning tutorial 
