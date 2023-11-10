@@ -6,7 +6,7 @@ This workshop was developed by Fanny Dupont, Natasha Klappstein, Arturo Esquivel
 
 ## Pre workshop preparation
 
-Before the workshop, please read the instruction the [0_Installing_packages](0_Installing_packages.html) files. Some of the packages can be tricky to install, so please install them before the workshop.
+Before the workshop, please read the instruction the [0_Installing_packages](0_Installing_packages.Rmd) files. Some of the packages can be tricky to install, so please install them before the workshop.
   
 ## Morning tutorial 
 The tutorial will be completed together, and can be found in the [activity](./Morning_Tutorial/Activity/Tutorial_Narwhal_morning_activity.Rmd) folder and will begin with a 30-minute introduction that will provide an overview of the tutorial objectives, and will go through the statistical background required. The tutorial has some guided activities.

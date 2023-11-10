@@ -1,7 +1,7 @@
 ---
 title: "Installing packages"
 subtitle: "Tips to install some of the packages"
-author: "Joe Watson, Ron Togunov, & Marie Auger-Méthé"
+author: "Marie Auger-Méthé, Joe Watson, & Ron Togunov"
 date: "26/07/2022"
 output: 
     html_document:
@@ -76,10 +76,10 @@ sudo apt-get install libudunits2-dev libgdal-dev libgeos-dev libproj-dev
 
 ### Installing the latest version of the spatial packages
 
-The latest version of sf and terra are **required**. The workshop material **will not work without these**. These can be installed **after** the latest GIS software has been installed.
+A recent version of sf is **required**. The workshop material **may not work without it**. It should be installed **after** installing the latest (or very recent) GIS software has been installed.
 
 ```{r, eval=FALSE}
-install.packages(c('sf', 'terra', 'tmap'), dep=TRUE)
+install.packages('sf', dep=TRUE)
 ```
 
 We are trying to remove any usage of the package raster (this package is now replaced by terra), but since momentuHMM still uses raster, it is sometimes easier to use functions from the raster package.
@@ -97,45 +97,29 @@ The remaining packages do not have special dependencies, and should be easily in
 + momentuHMM
 + dplyr
 + tidyr
-+ stringr
-+ data.table
 + lubridate
-+ units
-+ diveMove
-+ earthtide
-+ corrplot
-+ conicfit
-+ car
-+ mitools
-+ doFuture
 + kableExtra
-+ data.tree
++ ggOceanMaps
++ ggspatial
++ ggplot2
++ cowplot
++ readr
 
 ### Check that all packages are installed
 
 Once all the packages are installed, you can check that they are properly installed by loading them.
 
 ```{r, warning=FALSE, message=FALSE}
-library(sf)        # spatial data processing
-library(terra)     # raster data processing
-library(tmap)      # mapping spatial data
-library(sp)        # old spatial package
-library(raster)    # old raster package
-library(momentuHMM)# fitting HMMs
-library(dplyr)     # data management
-library(tidyr)     # data management
-library(stringr)   # character string management
-library(data.table)# data management
-library(lubridate) # date management
-library(units)     # physical measurement units management
-library(diveMove)  # calculating dive metrics 
-library(earthtide) # estimating tidal data 
-library(corrplot)  # calculating Pearson's correlation matrices
-library(conicfit)  # fitting error ellipses (required by momentuHMM)
-library(car)       # additional operations to Applied Regression
-library(mitools)   # parallel processing
-library(doFuture)  # parallel processing
-library(kableExtra)# produce visually appealing tables
-library(data.tree)
-library(DiagrammeR)
+library(sf)          # spatial data processing
+library(raster)      # old raster package
+library(momentuHMM)  # fitting HMMs
+library(dplyr)       # data management
+library(tidyr)       # data management
+library(lubridate)   # date management
+library(kableExtra)  # produce visually appealing tables
+library(ggOceanMaps) # plotting ocean maps
+library(ggspatial)   # plotting of spatial data
+library(ggplot2)     # plotting
+library(cowplot)     # plotting
+library(readr)       # read text files
 ```
