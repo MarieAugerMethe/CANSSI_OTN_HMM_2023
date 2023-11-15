@@ -266,7 +266,9 @@ fit4 = fitHMM(BlacktipBData,
 fit4
 ```
 
-We can visualise how likely the shark is to be in each state at each time of day. 
+Often times when it is difficult to interpret estimated values (i.e., estimates of the sine and cosine components), we can use plots!
+
+We can visualise how likely the shark is to be in each state at each time of day by looking at the stationary distribution (i.e., long-run probabilities).  
 
 ```{r}
 plotStationary(fit4, plotCI = TRUE)
@@ -278,8 +280,9 @@ Alternatively, our aim may be to account for the effect that the time of day may
 
 For example, we can model the mean parameter of the state-dependent Gamma distribution as a function of `tod`. 
 
+We fit the model where `DM` defines the model formula for the design matrix of the observation process. 
+
 ```{r}
-# Define design matrix for ODBA_avg
 DM <- list(ODBA_avg = list(mean = formula, sd = ~1))
 ```
 
@@ -300,13 +303,14 @@ fit5 <- fitHMM(BlacktipBData,
 fit5
 ```
 
+
 We can visualise the estimated mean parameter over the time of day. 
 
 ```{r}
 plot(fit5, ask = F, plotCI = T)
 ```
 
-We see that the mean of the 1-minute averaged ODBA values vary based on the time of day for the high-activity state (state 2). In particular, the ODBA values increase from around 8am to 12am then decrease from 12-8am. The mean of the 1-minute averaged ODBA values seem to vary less with the low activity state (state 1) as it persistently increases over a 24-h period.
+We see that the mean of the 1-minute averaged ODBA values vary depending on the time of day for both the low-activity state (state 1) and the high activity state (state 2). In particular, the ODBA values increase from around 0 to 8-h then decrease from 8 to 23-h for the low activity. This is the opposite for the high activity state where the ODBA values decrease then increase at those hours. 
 
 
 ## Model Comparison
@@ -319,7 +323,7 @@ plotPR(fit5)
 }
 ```
 
-There doesn't seem to be major differences in the qq-plot and acf-plot of the pseudo-residual although there is still the residual autocorrelation and deviations in the upper tail. Perhaps including more informative covariates or increasing the number of states might help. 
+There doesn't seem to be major differences in the qq-plot and acf-plot of the pseudo-residuals; residual autocorrelation and deviations in the upper tail. Perhaps including more informative covariates or increasing the number of states might help. 
 
 # Model section: Akaike Information Criteria (AIC)
 
@@ -393,6 +397,8 @@ BlacktipB_1min %>% mutate(day = day(Time)) %>%
 
 
 ```
+
+Note that usually the model with the lowest AIC score is chosen, but always use your ecological expertise. If there is a model with a comparable AIC score that is less complex/more interpretable/makes more ecological sense then this would be the more ideal model. 
 
 
 
