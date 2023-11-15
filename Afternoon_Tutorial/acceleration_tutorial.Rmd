@@ -233,7 +233,7 @@ During the model fitting process, we pointed out the absence of covariates in th
 
 We can add covariates in the HMM to the transition probabilities (i.e. state process) or the state-dependent distribution (i.e. the observation process).
 
-For example, we might be interested in including the time-of-day for each recorded observation as a covariate. We let the time of day fluctuate based on trigonometric functions, $cos(2\pi (t/60)/24)$ and $sin(2\pi (t/60)/24$. We construct this using the `cosinor` function and set `period = 1440` corresponding to the minute-resolution (i.e. $1440 = 60 \times 24$) . 
+For example, we might be interested in including the time-of-day for each recorded observation as a covariate. We let the time of day fluctuate based on trigonometric functions, $cos(2\pi (t/60)/24)$ and $sin(2\pi (t/60)/24$. We construct this using the `cosinor` function. 
 
 ```{r, cache=TRUE}
 # Add tod covariate
