@@ -18,6 +18,7 @@ Let's load some of the packages needed.
 
 ```{r}
 library(ggplot2)
+library(momentuHMM)
 ```
 
 ## Description of the dataset
@@ -27,7 +28,7 @@ The cleaned file is called '200-1-clean.csv'. There are 26 individuals recorded 
 
 Let's read the data into R and have a quick peak at it.
 ```{r data.load}
-cell <- read.csv("200-1-clean.csv")
+cell <- read.csv("200-1-clean-withcurrents.csv")
 head(cell)
 ```
 
@@ -91,3 +92,355 @@ There are a number of ways that the electric field might impact cell behaviour, 
 Can we use HMMs to establish which, if any, of these effects are responsible for the changes in state?
 
 Can we include surrounding cells positions to establish whether cell-cell interactions had an impact on their states/movement? 
+
+## Data-Processing
+
+```{r}
+cell$x <- as.numeric(cell$x)
+cell$y <- as.numeric(cell$y)
+
+cell$ID <- cell$TID
+data <- prepData(cell, type = "UTM", coordNames=c("x", "y"))
+plot(data, ask=F)
+
+hist(data$step, breaks=50)
+hist(data$angle, breaks=100)
+```
+
+```{r}
+{plot(data$step ~ data$PID, ty = "l", ylab = "Step length",
+     xlab = "Date", las = 1, ylim = c(0, 20))
+abline(h = 100, col = rgb(1, 0, 0, 0.5))
+abline(h = 600, col = rgb(1, 0, 0, 0.5))
+}
+```
+
+```{r}
+# define states (optional)
+stateNames <- c("none", "electro")
+nbState <- length(stateNames)
+
+# define distribution to use for each data stream
+dist <- list(step = "gamma", angle = "vm")
+
+# Setting up the starting values
+mu0 <- c(5, 10) # Mean step length
+sigma0 <- mu0/2 # SD of the step length
+kappa0 <- c(0.01, 0.5) # Turn angle concentration parameter
+zeromass <- c(0.1, 0.01)
+
+# combine starting parameters 
+Par0 <- list(step = c(mu0, sigma0, zeromass), angle = kappa0)
+```
+
+```{r}
+# Fit a 2 state HMM
+mod <- fitHMM(data, 
+              stateNames = stateNames, 
+              nbState = nbState, 
+              dist = dist, 
+              Par0 = Par0)
+
+# Let's look at parameter estimates
+mod
+```
+
+```{r}
+# Fit a 2 state HMM
+mod1 <- fitHMM(data, 
+              stateNames = stateNames, 
+              nbState = nbState, 
+              dist = dist, 
+              Par0 = Par0,
+              retryFits = 10)
+
+# Let's look at parameter estimates
+mod1
+```
+
+```{r}
+plotPR(mod)
+```
+
+```{r}
+plot(mod1, ask=F)
+```
+
+```{r}
+# define states (optional)
+stateNames <- c("none", "intermediate", "electro")
+nbState <- length(stateNames)
+
+# define distribution to use for each data stream
+dist <- list(step = "gamma", angle = "vm")
+
+# Setting up the starting values
+mu0 <- c(2.5, 5, 8) # Mean step length
+sigma0 <- c(0.5, 2, 5) # SD of the step length
+kappa0 <- c(0.2, 0.5, 0.01) # Turn angle concentration parameter
+zeromass <- c(0.1, 0.05, 0.01)
+
+# combine starting parameters 
+Par0 <- list(step = c(mu0, sigma0, zeromass), angle = kappa0)
+
+# Fit a 3 state HMM
+mod3 <- fitHMM(data, 
+              stateNames = stateNames, 
+              nbState = nbState, 
+              dist = dist, 
+              Par0 = Par0)
+
+# Let's look at parameter estimates
+mod3
+```
+
+
+
+```{r}
+plotPR(mod3)
+```
+
+```{r}
+plot(mod3, ask=FALSE, breaks=50)
+```
+
+With covariates on tpm 
+
+```{r}
+cell$Current1 <- as.factor(cell$Current1)
+```
+
+```{r}
+data <- prepData(cell, type = "UTM", coordNames=c("x", "y"))
+```
+
+
+
+```{r}
+formula = ~Current1
+```
+
+```{r}
+# define states (optional)
+stateNames <- c("state1", "state2", "state3")
+nbState <- length(stateNames)
+
+# define distribution to use for each data stream
+dist <- list(step = "gamma", angle = "vm")
+
+# Setting up the starting values
+mu0 <- c(2.5, 5, 8) # Mean step length
+sigma0 <- c(0.5, 2, 5) # SD of the step length
+kappa0 <- c(0.2, 0.5, 0.01) # Turn angle concentration parameter
+zeromass <- c(0.1, 0.05, 0.01)
+
+# combine starting parameters 
+Par0 <- list(step = c(mu0, sigma0, zeromass), angle = kappa0)
+
+# Fit a 3 state HMM
+mod3.tpm <- fitHMM(data, 
+              stateNames = stateNames, 
+              nbState = nbState, 
+              dist = dist, 
+              Par0 = Par0,
+              formula = formula)
+
+# Let's look at parameter estimates
+mod3.tpm
+```
+
+```{r}
+plot(mod3.tpm, ask=F)
+```
+
+```{r}
+cell$Current2 <- as.factor(cell$Current2)
+data <- prepData(cell, type = "UTM", coordNames=c("x", "y"))
+```
+
+
+```{r}
+formula = ~Current2
+```
+
+
+```{r}
+# define states (optional)
+stateNames <- c("none", "intermediate", "electro")
+nbState <- length(stateNames)
+
+# define distribution to use for each data stream
+dist <- list(step = "gamma", angle = "vm")
+
+# Setting up the starting values
+mu0 <- c(2, 9, 12) # Mean step length
+sigma0 <- c(0.5, 2, 5) # SD of the step length
+sigma0 <- mu0/2
+kappa0 <- c(0.2, 0.5, 0.01) # Turn angle concentration parameter
+kappa0 <- c(0.01, 0.3, 0.3)
+zeromass <- c(0.1, 0.05, 0.01)
+zeromass <- c(0.1, 0.1, 0.1)
+
+# combine starting parameters 
+Par0 <- list(step = c(mu0, sigma0, zeromass), angle = kappa0)
+
+# Fit a 3 state HMM
+mod3.tpm2 <- fitHMM(data, 
+              stateNames = stateNames, 
+              nbState = nbState, 
+              dist = dist, 
+              Par0 = Par0,
+              formula = formula)
+
+# Let's look at parameter estimates
+mod3.tpm2
+```
+
+```{r}
+plot(mod3.tpm2, ask=F)
+```
+
+```{r}
+plot(mod3.tpm, ask=F)
+```
+
+
+```{r eval=F}
+plotStationary(mod3.tpm)
+plotStationary(mod3.tpm2)
+```
+
+```{r eval=F}
+plotPR(mod3.tpm2)
+```
+
+```{r}
+formula = ~Current1
+# define states (optional)
+nbState <- length(stateNames)
+
+# define distribution to use for each data stream
+dist <- list(step = "gamma", angle = "vm")
+
+# Setting up the starting values
+mu0 <- c(2, 9, 12) # Mean step length
+sigma0 <- c(0.5, 2, 5) # SD of the step length
+sigma0 <- mu0/2
+kappa0 <- c(0.2, 0.5, 0.01) # Turn angle concentration parameter
+kappa0 <- c(0.01, 0.3, 0.3)
+zeromass <- c(0.1, 0.05, 0.01)
+zeromass <- c(0.1, 0.1, 0.1)
+
+# combine starting parameters 
+Par0 <- list(step = c(mu0, sigma0, zeromass), angle = kappa0)
+
+# Fit a 3 state HMM
+mod3.tpm1 <- fitHMM(data, 
+              stateNames = stateNames, 
+              nbState = nbState, 
+              dist = dist, 
+              Par0 = Par0,
+              formula = formula)
+
+# Let's look at parameter estimates
+mod3.tpm1
+
+
+```
+
+```{r}
+plot(mod3.tpm1, ask=F, breaks=50)
+plotStationary(mod3.tpm1)
+plotPR(mod3.tpm1)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+# define states (optional)
+stateNames <- c("start", "none", "intermediate", "electro")
+nbState <- length(stateNames)
+
+# define distribution to use for each data stream
+dist <- list(step = "gamma", angle = "vm")
+
+# Setting up the starting values
+mu0 <- c(2.5, 5, 8, 12) # Mean step length
+sigma0 <- c(3, 2.5, 2, 0.5) # SD of the step length
+kappa0 <- c(0.1, 0.2, 0.5, 0.01) # Turn angle concentration parameter
+zeromass <- c(0.1, 0.05, 0.025, 0.001)
+
+# combine starting parameters 
+Par0 <- list(step = c(mu0, sigma0, zeromass), angle = kappa0)
+
+# Fit a 4 state HMM
+mod5 <- fitHMM(data, 
+              stateNames = stateNames, 
+              nbState = nbState, 
+              dist = dist, 
+              Par0 = Par0,
+              circularAngleMean = list(angle=T))
+
+# Let's look at parameter estimates
+mod5
+```
+
+```{r}
+plotPR(mod5)
+```
+```{r}
+plot(mod5, ask=F, breaks = 50)
+```
+
+```{r}
+cell$Current1 <- as.factor(cell$Current1)
+cell$ang <- -cell$q..deg 
+```
+
+```{r}
+data <- prepData(cell, type = "UTM", coordNames=c("x", "y"))
+```
+
+```{r}
+angle_DM <- list(mean = ~angle, sd = ~1)
+```
+
+
+```{r}
+# define states (optional)
+stateNames <- c("start", "none", "intermediate", "electro")
+nbState <- length(stateNames)
+
+# define distribution to use for each data stream
+dist <- list(step = "gamma", angle = "vm")
+
+# Setting up the starting values
+mu0 <- c(2.5, 5, 8, 12) # Mean step length
+sigma0 <- c(3, 2.5, 2, 0.5) # SD of the step length
+kappa0 <- c(0.1, 0.2, 0.5, 0.01) # Turn angle concentration parameter
+zeromass <- c(0.1, 0.05, 0.025, 0.001)
+
+# combine starting parameters 
+Par0 <- list(step = c(mu0, sigma0, zeromass), angle = kappa0)
+
+# Fit a 4 state HMM
+mod.angle <- fitHMM(data, 
+              stateNames = stateNames, 
+              nbState = nbState, 
+              dist = dist, 
+              Par0 = Par0,
+              circularAngleMean = list(angle=T))
+
+# Let's look at parameter estimates
+mod5
+```
+
