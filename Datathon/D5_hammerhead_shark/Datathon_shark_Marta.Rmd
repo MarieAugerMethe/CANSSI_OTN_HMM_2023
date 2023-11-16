@@ -35,21 +35,20 @@ head(shark)
 
 As you can see, the dataset contains these variables:
 
-- **Tag_id:** Identification code of the tag used for each individual
+- **Tag_Id:** Identification code of the tag used for each individual
 - **Date_tag:** Date at which each individual was tagged
 - **Datetime_det:** Date and time associated to each detection
-- **Station:** Site of detection. The acoustic receivers were placed at 8 sites around the island (Roca Sucia, Alcyone, Dos Amigos, Manuelita, Canal, Punta Maria, Ulloa and Shark fin)
+- **Station.Name:** Site of detection. The acoustic receivers were placed at 8 sites around the island (Roca Sucia, Alcyone, Dos Amigos, Manuelita, Canal, Punta Maria, Ulloa and Shark fin)
 - **Lat:** Latitude of the receiver's location
 - **Long:** Longitude of the receiver's location
 - **Depth:** Depth of the receiver from the surface
+- **mean.chla:** Mean chlorophyll-a concentrations (mg m-3) with a spatial resolution of 4.64 km and monthly composite extracted from NASA's Aqua Spacecraft (https://www.pfeg.noaa.gov)
+- **sd.chla:** SD chlorophyll-a concentration (?)
+- **mean.temp:** Daily mean sea surface temperature (ºC) with a spatial resolution of 0.25 degrees from NOAA NCEI (https://www.ncdc.noaa.gov/oisst)
 
 The main movement variable we will model are the coordinates of the station where each individual was detected (Lat, Long). The data are detections of the individuals that come within the range of a receiver. The tag are programmed to emit their ID between 2 and 5 min, but the detections are made when the shark comes within the range of the receiver. Thus the data is at irregular time intervals.
 
-**Marta:** Can an individual be detected by more than one receiver at the same time? Or are the receiver far enough away that no simultaneous detections made?
-
-**Marta:** If you have time I recommend that you extract temperature Chlorophyll a, it will give more time for the analysis, which is what our team is best at.
-
-Let's do some basic formating. `Tag_Id` as factor and `Datetime_det` as datetime.
+Let's do some basic formatting. `Tag_Id` as factor and `Datetime_det` as datetime.
 
 ```{r}
 shark$Datetime_det <- ymd_hms(shark$Datetime_det)
@@ -86,7 +85,7 @@ ggplot() +
   facet_grid(~ Tag_Id)
 ```
 
-Not very informative as there are only 8 receivers, and as we can see only 4 receivers detected sharks. From the map however, we can see that the sharks used different receivers.
+Not very informative as there are only 8 receivers, and as we can see only 4 receivers detected sharks during that time period. From the map however, we can see that the sharks used different receivers.
 
 ```{r}
 # Which receivers detected shark?
@@ -111,15 +110,24 @@ Look at days with detections
 
 ```{r}
 # Look at days with detection
-shark_res <- shark
-shark_res$Date_det <- date(shark$Datetime_det)
-shark_res <- unique(shark_res[,c(1:2,4:8)])
+shark$Date_det <- date(shark$Datetime_det)
+shark_res <- unique(shark[,c("Tag_Id", "Date_tag",
+                                 "Station.Name", 
+                                 "Lat", "Long", "Depth",
+                                 "Date_det",
+                                 "mean.chla", "sd.chla", "mean.temp")])
+
+# Look at the number of detections on these days
+shark_res <- shark %>% group_by(Tag_Id, Station.Name) %>% count(Date_det) %>% 
+  full_join(shark_res, by= c("Tag_Id", "Date_det", "Station.Name"))
+
 
 ggplot(shark_res, aes(x=Date_det, y=Station.Name, colour=Tag_Id)) + 
-  geom_point() +
+  geom_point(aes(size=n), alpha=0.5) +
   xlab("Day of the year") +
   facet_grid(~ Tag_Id)
 
+# n is the number of detections per day for that individual at that receiver
 ```
 
 ## Datathon goal
@@ -128,14 +136,6 @@ The goals are (1) to provide a road map of how to tackle the questions listed be
 
 ### Questions:
 
-1. Evaluate the residency and site preference of scalloped hammerhead sharks at Cocos Island
-2. Determine the influence of water temperature and chlorophyll-a concentrations on the number of detections and residency of scalloped hammerhead sharks at Cocos Island
-
-* Residency is defined as the number of days during which a shark is detected at least once as a proportion of the track length, from the date of tagging to the last detection.*
-
-**Marta:** I don't understand "at least once as a proportion of the track length". Note here that to make the file manageable I cut it to one year. 
-
-*Site preference is defined as the relative proportion of time spent at each study site area.* 
-
-
+1. Evaluate movement patterns and residency of scalloped hammerhead sharks at Cocos Island 
+2. Determine the influence of surface temperature and chlorophyll-a concentration on the residency of scalloped hammerhead sharks at Cocos Island 
 
