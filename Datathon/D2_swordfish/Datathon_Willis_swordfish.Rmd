@@ -1,0 +1,196 @@
+---
+title: "OTN/CANSSI Datathon: Deviations from diel vertical migration in swordfish"
+author: "Ciara Willis (PI Simon Thorrold, Camrin Braun)"
+output: html_document
+---
+
+
+## Data availability statement
+
+The dataset for this activity is available in the rds files shared via Github (https://github.com/MarieAugerMethe/CANSSI_OTN_HMM_2023). It can used for our OTN/CANSSI meeting and shared for educational purposes with accreditation (C Willis, S Thorrold, C Braun; WHOI). It cannot be used for any publication without written permission. Please contact Ciara Willis (willisc@mit.edu) for more information. 
+
+## Set up
+
+Let's load some of the packages needed.
+
+```{r}
+library(ggplot2)
+library(diveMove)
+library(tidyr)
+library(dplyr)
+```
+
+## Description and exploration of the data
+
+The biologging data of two swordfish in the North West Atlantic collected by Dr. Camrin Braun and team using MiniPAT tags (Wildlife Computers Inc.). Each fish's data has been subset to ~2 months. The tag has collected depth, temperature (tag 110490 only), and position (lat/lon) data. Depth and temperature were sampled every 5 min (tag 110490) or 7.5 min (tag 110491). Position is reported once per day.
+
+For each fish we have two time series: 
+1. the series files have the depth, light, and temperature (tag 110490 only),
+2. the track files have the lat lon and associated error.
+
+Let's read and look at the data. 
+
+```{r }
+# Data found in the Data folder
+
+#individual 11090
+series_90 <- readRDS("Data/110490_series.rds")
+track_90 <- readRDS("Data/110490_track.rds")
+
+head(series_90)
+head(track_90)
+
+#individual 11091
+series_91 <- readRDS("Data/110491_series.rds")
+track_91 <- readRDS("Data/110491_track.rds")
+
+head(series_91)
+head(track_91)
+```
+
+As we can see, the series datasets contain these variables:
+
+- **DateTime_local:** local time
+- **DateTime:** time in UTC
+- **Depth:** in m
+- **Temperature:** in degrees C
+- **Light**:
+
+The track datasets contain these variables:
+
+- **DateTime:** time in UTC
+- **Lat/Lon:** estimated from light level geolocation
+- **latitudeError**: error associated with latitude
+- **longitudeError**: error associated with latitude
+
+The main movement variable we will model is depth. There is some missing data.
+
+## Quick data exploration
+
+Let's quickly visualize the data.
+
+```{r}
+# Load world map
+world <- map_data('world')
+```
+
+
+
+#### Swordfish 11090
+
+```{r}
+ggplot(series_90, aes(DateTime, depth, colour = temperature))+
+  geom_point()+
+  geom_line() +
+  scale_color_viridis_c()+
+  scale_y_reverse()+
+  labs(colour = "Temp")
+```
+
+
+```{r}
+ggplot() +
+  theme(legend.position = c(.9,.2),
+        panel.grid=element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank()
+  )+
+  geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
+  coord_fixed(xlim=c(-90,-30), ylim=c(10,50), ratio=1.3) + 
+  xlab('') + ylab('') +
+  geom_point(data = track_90, aes(x=longitude, y=latitude, colour = DateTime))
+```
+
+#### Swordfish 11091
+
+```{r}
+ggplot(series_91, aes(DateTime, depth)) +
+  geom_point() +
+  geom_line() +
+  scale_color_viridis_c() +
+  scale_y_reverse()
+```
+
+```{r}
+ggplot() +
+  theme(legend.position = c(.9,.2),
+        panel.grid=element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank()
+  )+
+  geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
+  coord_fixed(xlim=c(-90,-30), ylim=c(10,50), ratio=1.3) + 
+  xlab('') + ylab('') +
+  geom_point(data = track_91, aes(x=longitude, y=latitude, colour = DateTime))
+```
+
+
+## Quick data manipulation
+
+
+Here is a quick way to get to isolate and sumarize dives using `diveMove`. 
+First since there is missing data I regularized the dataset.
+
+```{r}
+# Regularize data
+dive_90 <- series_90 %>% 
+ # regularise time series by 5 min
+  summarise(DateTime = seq(first(DateTime), last(DateTime), by = 5*60)) %>%
+  # merge regularised time with original dive
+  left_join(series_90, by = c("DateTime"))
+```
+
+Create a TDR object from `diveMove`.
+
+```{r}
+dive_90 <- createTDR(time = dive_90$DateTime, depth = dive_90$depth, file = "Data/110490_series.rds")
+plotTDR(dive_90)
+```
+
+You can look at dive phases and calibrate for offset using functions such as `calibrateDepth`.
+Here I just used a 0 offset, but might want to look into the details to see if approriate.
+
+The threshold I use to separate dives is 10 m. Changing this threshold will change the results.
+
+```{r}
+dive_90_cal <- calibrateDepth(dive_90, 
+                         zoc.method = "offset", offset = 0, dive.thr = 10)
+
+plotTDR(dive_90_cal)
+```
+
+Here are some quick summary statistics. You may want to think about how the missing data could affect the results.
+
+```{r}
+stats_90 <- diveStats(dive_90_cal)
+colnames(stats_90)
+head(stats_90)
+```
+
+You can see that you get a lot of information per dive, e.g. bottom time, maximum depth, etc. Here it's only for individual 90, but this could be easily reproduce for individual 91.
+
+Here is a quick plot of max depth through time
+```{r}
+ggplot(stats_90, aes(x=begdesc, y=-1*maxdep)) +
+  xlab('Start of the dive') + ylab('Max depth of the dive') +
+  geom_point() +
+  geom_line()
+```
+
+## Datathon goal
+
+The goals are (1) to provide a road map of how to tackle the questions listed below, (2) attempt to complete at least the first step of your road map, and (3) provide interpretation of the results. Make a quick 5-minute presentation explaining what your team did.
+
+### Questions:
+
+The goal of this project is to describe the diel vertical migration (DVM) behaviour of swordfish and identify deviations from DVM. DVM is a pattern of vertical habitat use where nights are spent in the surface ocean and days in the mesopelagic (~600 m). Swordfish typically follow a clear DVM, but occasionally 1) briefly come up to surface waters during the daytime or 2) dive unusually deep (to ~1000m or more). The typical DVM pattern is presumably due to predation on migrating communities of mesopelagic fish & invertebrates. The daytime surface water use (i.e., basking) is presumably to warm up. The purpose of the occasional deep dives is unclear, but may be linked to navigation.
+
+
+Areas of exploration:
+
+- Can we characterise the diurnal dive pattern of these animals. We hypothesize that dive descents are usually at dawn and ascents are usually at dusk.
+- Look for unusual dives, for example daytime use of the surface ocean.
+- How does vertical habitat use change over horizontal movement? In what locations do "unusual" dives occur?
+- For swordfish 11090, how does vertical habitat use vary with temperature?
+- What other environmental variables could we access to complement this dataset? E.g. lunar phase, SST satellite data
+
