@@ -1,0 +1,141 @@
+---
+title: "OTN/CANSSI Datathon: scalloped hammerhead sharks"
+author: "Arauz, R., Steiner, T., Chávez, E.J., Hearn, A."
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data availability statement
+
+The dataset for this activity is available in the file *hammerhead_sharks_Arauz_etal.csv* shared via Github (https://github.com/MarieAugerMethe/CANSSI_OTN_HMM_2023). It can used for our OTN/CANSSI meeting and shared for educational purposes with accreditation (*Arauz, R., Steiner, T., Chávez, E.J., Hearn, A*). It cannot be used for any publication without written permission. Please contact *Randall Arauz* (*rarauz@cremacr.org*) or *Elpis Joan* (*elpis_joan@hotmail.com*) for more information.
+
+## Set up
+
+Let's load some of the packages needed.
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(lubridate)
+```
+
+## Description of the dataset
+
+This data set contains the detections of 5 female hammerhead shark individuals tagged with V16 acoustic transmitters at Cocos Island (Costa Rica) in August 2017. This data set was extracted from a larger data set of 70 hammerhead shark individuals tagged between 2015 and 2021 by Randall Arauz and collaborators. An array of 8 acoustic receivers was placed around Cocos Island to detect the signals from the acoustic transmitters which were programmed to emit random signals every 2 to 5 minutes. We subsetted the data to last from the deployment to March 1 2019.
+
+Let's read the data into R and have a quick peak at it.
+```{r data.load}
+shark <- read.csv("hammerhead_sharks_Arauz_etal.csv")
+head(shark)
+```
+
+As you can see, the dataset contains these variables:
+
+- **Tag_id:** Identification code of the tag used for each individual
+- **Date_tag:** Date at which each individual was tagged
+- **Datetime_det:** Date and time associated to each detection
+- **Station:** Site of detection. The acoustic receivers were placed at 8 sites around the island (Roca Sucia, Alcyone, Dos Amigos, Manuelita, Canal, Punta Maria, Ulloa and Shark fin)
+- **Lat:** Latitude of the receiver's location
+- **Long:** Longitude of the receiver's location
+- **Depth:** Depth of the receiver from the surface
+
+The main movement variable we will model are the coordinates of the station where each individual was detected (Lat, Long). The data are detections of the individuals that come within the range of a receiver. The tag are programmed to emit their ID between 2 and 5 min, but the detections are made when the shark comes within the range of the receiver. Thus the data is at irregular time intervals.
+
+**Marta:** Can an individual be detected by more than one receiver at the same time? Or are the receiver far enough away that no simultaneous detections made?
+
+**Marta:** If you have time I recommend that you extract temperature Chlorophyll a, it will give more time for the analysis, which is what our team is best at.
+
+Let's do some basic formating. `Tag_Id` as factor and `Datetime_det` as datetime.
+
+```{r}
+shark$Datetime_det <- ymd_hms(shark$Datetime_det)
+shark$Tag_Id <- as.factor(shark$Tag_Id)
+```
+
+Let's look at the time intervals between detections
+
+```{r}
+time_int <- shark %>% group_by(Tag_Id) %>% summarise(dt = diff(Datetime_det))
+range(time_int$dt)
+
+# How many longer than 30 min
+sum(time_int$dt > 30*60)
+
+# Plot the intevals for shorter time periods (< 30 min)
+ggplot(filter(time_int, dt < 30*60), aes(as.numeric(dt))) + 
+  geom_histogram(binwidth = 10) +
+  xlab("Time interval (sec)") +
+  facet_grid(~ Tag_Id)
+```
+
+## Quick data exploration
+
+Let's quickly visualize it.
+
+Let's map the data
+
+```{r data.vis}
+# Map the data
+ggplot() +
+  xlab('') + ylab('') +
+  geom_point(data = shark, aes(x=Long, y=Lat, colour = Tag_Id)) +
+  facet_grid(~ Tag_Id)
+```
+
+Not very informative as there are only 8 receivers, and as we can see only 4 receivers detected sharks. From the map however, we can see that the sharks used different receivers.
+
+```{r}
+# Which receivers detected shark?
+unique(shark$Station.Name)
+```
+
+Let's look at diurnal and monthly patterns.
+
+```{r}
+ggplot(shark, aes(x=Station.Name, y=hour(Datetime_det), colour=Tag_Id)) + 
+  geom_boxplot() +
+  ylab("Hour of the day") +
+  facet_grid(~ Tag_Id)
+
+ggplot(shark, aes(x=Station.Name, y=month(Datetime_det), colour=Tag_Id)) + 
+  geom_boxplot() +
+  ylab("Month of the year") +
+  facet_grid(~ Tag_Id)
+```
+
+Look at days with detections
+
+```{r}
+# Look at days with detection
+shark_res <- shark
+shark_res$Date_det <- date(shark$Datetime_det)
+shark_res <- unique(shark_res[,c(1:2,4:8)])
+
+ggplot(shark_res, aes(x=Date_det, y=Station.Name, colour=Tag_Id)) + 
+  geom_point() +
+  xlab("Day of the year") +
+  facet_grid(~ Tag_Id)
+
+```
+
+## Datathon goal
+
+The goals are (1) to provide a road map of how to tackle the questions listed below, (2) attempt to complete at least the first step of your road map, and (3) provide interpretation of the results. Make a quick 5-minute presentation explaining what your team did.
+
+### Questions:
+
+1. Evaluate the residency and site preference of scalloped hammerhead sharks at Cocos Island
+2. Determine the influence of water temperature and chlorophyll-a concentrations on the number of detections and residency of scalloped hammerhead sharks at Cocos Island
+
+* Residency is defined as the number of days during which a shark is detected at least once as a proportion of the track length, from the date of tagging to the last detection.*
+
+**Marta:** I don't understand "at least once as a proportion of the track length". Note here that to make the file manageable I cut it to one year. 
+
+*Site preference is defined as the relative proportion of time spent at each study site area.* 
+
+
+

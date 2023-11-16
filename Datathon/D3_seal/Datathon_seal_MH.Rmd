@@ -1,0 +1,78 @@
+---
+title: "OTN/CANSSI Datathon: grey seal behaviours"
+author: "Max Henry-Adams (Sara Iverson and Don Bowen)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data availability statement
+
+The dataset for this activity is available in the file *seal_Max.csv* shared via Github (https://github.com/MarieAugerMethe/CANSSI_OTN_HMM_2023). It can used for our OTN/CANSSI meeting and shared for educational purposes with accreditation (*D. Bowen and S. Iverson, Dalhousie University*). It cannot be used for any publication without written permission. Please contact *D. Bowen (wbowen@dal.ca) and S. Iverson (sara.iverson@dal.ca) for more information. 
+
+## Set up
+
+Let's load some of the packages needed.
+
+```{r}
+library(ggplot2)
+```
+
+## Description of the dataset
+
+This data set contains location estimates from three female Northwest Atlantic grey seal deployments where individuals were fitted with MK10 Fastloc GPS tags. Two individuals were tagged in the spring and one in the fall and tags were recovered when the seals returned to the breeding site in December or January. Tags were set to transmit location (latitude and longitude) every 15 minutes when the tag is wet (seal is in the water).  
+
+Let's read the data
+
+```{r}
+seal <- read.csv("seal_Max.csv")
+head(seal)
+```
+
+As we can see, the dataset contain these variables:
+
+- **id:** Seal identity
+- **date:** Includes the date and time of each data point (in UTC?)
+- **latitude:** Latitude at each data point
+- **longitude:** Longitude at each data point
+
+The main movement variables we will model are latitude and longitude. There is missing data. Data points were collected every 15 minutes when the seal is in the water.
+
+
+
+## Quick data management and exploration
+
+Let's make id as a factor.
+
+```{r}
+seal$id <- as.factor(seal$id)
+```
+
+
+Let's quickly map the data.
+
+```{r data.vis}
+# Get a world map
+world <- map_data('world')
+
+# Map the data
+ggplot() +
+  theme(legend.position = c(.9,.2)
+  )+
+  geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
+  coord_fixed(xlim=c(-62,-56), ylim=c(43,45), ratio=1.3) + 
+  xlab('') + ylab('') +
+  geom_point(data = seal, aes(x=longitude, y=latitude, colour = id))
+```
+Note that there appears to be at least one outlier. 
+
+## Datathon goal
+
+The goals are (1) to provide a road map of how to tackle the questions listed below, (2) attempt to complete at least the first step of your road map, and (3) provide interpretation of the results. Make a quick 5-minute presentation explaining what your team did.
+
+### Questions:
+
+The goal of this research is to characterize foraging behaviour in female grey seals. From these data, we would like to identify foraging trip duration, time spent in an apparent foraging state, number of area restricted search (ARS) patterns in a foraging trip, and residence time in ARS at a given foraging location. This study will use a two state model with foraging defined as tortuous movement with θ ≈ π and γ < 0.5 while the travelling state is classified by low turning angles and high autocorrelation in speed and direction with θ ≈ 0 and γ > 0.5.
+
