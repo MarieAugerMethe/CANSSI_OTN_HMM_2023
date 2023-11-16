@@ -1,0 +1,93 @@
+---
+title: "OTN/CANSSI Datathon: The case study on cells"
+author: "REBECCA CROSSLEY"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data availability statement
+
+The dataset for this activity was taken from Prescott, T. P., Zhu, K., Zhao, M., & Baker, R. E. (2021). Supporting Material (Data) --- Quantifying the impact of electric fields on single-cell motility (v1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.4749429 It can used for our the educational purposes of the OTN/CANSSI meeting in line with Creative Commons Attribution Non Commercial No Derivatives 4.0 International (https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode). To use in other context, please refer back to the original dataset and cite original soource. Please contact Rebecca Crossley (rebecca.crossley@maths.ox.ac.uk) for more information about this activity. 
+
+## Set up
+
+Let's load some of the packages needed.
+
+```{r}
+library(ggplot2)
+```
+
+## Description of the dataset
+
+This dataset contains the x and y positions of the centroids of a number of sparsely seeded cells during an electrotaxis experiment. We will focus initially on the dataset in the file '200mV-1.csv'. 
+The cleaned file is called '200-1-clean.csv'. There are 26 individuals recorded at 5 minute intervals over a 5 hour period. 
+
+Let's read the data into R and have a quick peak at it.
+```{r data.load}
+cell <- read.csv("200-1-clean.csv")
+head(cell)
+```
+
+Specifically, the dataset we will use contain these variables:
+
+- TID: this is the tracking identifier. For example, TID 1 records all the positions for cell 1. 
+- PID: this variables records the time indexing. It is in ascending order. 
+- x: this is the x position of the cell at recording.
+- y: this is the y position of the cell at recording.
+- Len.m: length of the cell
+
+We are not sure what all the other column contains. Please refere back to the original paper and citation.
+
+We will model the movement of these cells, looking at the x and y positions over time. 
+
+There should not be any missing data as the data in the file is already pruned to remove any cells that left the inspection region, migrated in later during time, merged or proliferated. 
+
+Let's make TID (i.e., the cell ID) a factor.
+
+```{r}
+cell$TID <- as.factor(cell$TID)
+```
+
+## Quick data exploration
+
+Let's quickly visualize it.
+We want to look at some tracks for individual cells.
+
+
+```{r data.vis}
+ggplot() +
+  geom_point(data = cell, aes(x=x, y=y, colour = TID))
+```
+
+
+## Datathon goal
+
+The goals are (1) to provide a road map of how to tackle the questions listed below, (2) attempt to complete at least the first step of your road map, and (3) provide interpretation of the results. Make a quick 5-minute presentation explaining what your team did.
+
+### Questions:
+
+This data is messy. 
+The first thing we would like to find is when there is an electric field applied. We know that the behaviour of the cells should differ when the electric field is applied, specifically such that movement is biased in one direction and has a longer persistence under an electric field. 
+
+During the experiment, the electric field is applied both from left to right, and from right to left. 
+Therefore, we want to identify the states corresponding to when an electric field is applied, and not. 
+Should this be a 2 or 3 state HMM? I.e. does the direction of the electric field matter? 
+Does every cell respond to the field? Do more states need to be included to account for this?
+
+Another topic for investigation is the cell polarity. We assume that cell polarity is random and drives direction of migration, but cannot measure this internal variable. 
+Can we apply a HMM to distinguish the polarity of the cell, starting initially by considering just left and right (maybe using only x variables in the data?) Would a bin or stationary state help as a 3rd state in the HMM? 
+
+Now that we have confirmed the time points when an electric field is applied, we want to introduce this as a covariate. 
+There are a number of ways that the electric field might impact cell behaviour, including:
+- a velocity bias
+- increasing cell speed in the direction of the cell polarisation, or in the direction of the field
+- Speed alignment, meaning cells travel faster when their polarisation aligns with the direction of the electric field and slowly in the opposite direction.
+- polarity bias, such that the random walk becomes polarised in the direction of the electric field
+- changes to rate of change of polarization etc
+- many more
+Can we use HMMs to establish which, if any, of these effects are responsible for the changes in state?
+
+Can we include surrounding cells positions to establish whether cell-cell interactions had an impact on their states/movement? 
