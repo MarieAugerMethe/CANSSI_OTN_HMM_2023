@@ -1,0 +1,86 @@
+---
+title: 'OTN/CANSSI Datathon: Identifying gull incubation using accelerometer data'
+author: "Shabnam Shadloo, Marie Auger-Méthé"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data availability statement
+
+The dataset for this activity is available in the file *gull_subsampled_Shabnam.csv* shared via Github (https://github.com/MarieAugerMethe/CANSSI_OTN_HMM_2023). It can be used for our OTN/CANSSI meeting and shared for educational purposes with accreditation (Auger-Méthé, M., and Shadloo S.). It cannot be used for any publication without written permission. Please contact Marie Auger-Méthé (auger-methe@stat.ubc.ca) for more information. 
+
+Let's load some of the packages needed.
+
+```{r}
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+```
+
+
+## Description of the dataset
+
+The dataset contains the data of one Glaucous-winged gull, tagged on an island located off the coast of Vancouver Island in British Columbia. The data covers a period of 15 days from June 28th to July 12th, 2023. It includes three-axis accelerometer data and GPS locations. The GPS data was recorded every 15 minutes, each followed by a 30-second burst of accelerometer data sampled at a frequency of 5 Hz. Here we have downsampled the data, and we have the accelerometer data at 1 Hz.
+
+
+Let's read the data into R and have a quick peak at it.
+```{r data.load}
+gull <- read.csv("gull_subsampled_Shabnam.csv")
+head(gull)
+```
+
+
+As you can see, the dataset contains these variables:
+
+
+- **datimePST** time and date; time zone: Pacific Standard Time
+- **datatype** either GPS or other sensors (Here, 3-axes cceleration). There is one burst of acceleration data after each GPS record, for 30 seconds. SEN_ALL_5Hz_START: shows the first acceleration data point for each 30-second burst, and SEN_ALL_5Hz_END shows the last one.
+- **Latitude and Longitude**: as name implies, only every 15 min
+- **direction_deg**: GPS measured movement direction in degrees
+- **acc_x, acc_y, acc_z**: represent the acceleration in the x, y, and z axes. The unit is mg. We might need to remove the gravity force.*
+- **pitch**: pitch as calculated with the `getpitch` function from `seabiRds` (https://rdrr.io/github/allisonglider/seabiRds/man/getPitch.html). We used  a window of 1 second.
+- **Behaviour_state**: this is determined based on observations of the bird's behaviour. The categories include "Up_Alert" (when the bird is standing alert, near its nest), "Incubating", and "Not_on_Nest" (when the bird is not around the observer and is potentially foraging at sea or doing other behaviours).
+- **Land**: 1: the GPS location is over land, 0: over water bodies (mostly oceans).
+
+
+I would like to use pitch to figure out if their body position can be used to differentiate incubation from standing alert in their colonies.
+
+Note that there is missing data and that the data is not completely regular. The GPS data is recorded every 15 minutes, which is then followed by a 30-second burst of acceleration data at a frequency of 5 Hz.
+
+## Quick data exploration
+
+Let's format time and Behaviour_state as factor.
+
+```{r}
+gull$datetimePST <- ymd_hms(gull$datetimePST)
+gull$Behaviour_state <- as.factor(gull$Behaviour_state)
+```
+
+Let's quickly visualize pitch over time. Note we remove rows with NAs (e.g., first rows). 
+
+```{r data.vis}
+ggplot(filter(gull, !is.na(pitch)), aes(datetimePST, pitch)) + 
+  geom_line() + 
+  geom_point(aes(colour=Behaviour_state))
+
+```
+
+
+
+## Datathon goal
+
+The goals are (1) to provide a road map of how to tackle the questions listed below, (2) attempt to complete at least the first step of your road map, and (3) provide interpretation of the results. Make a quick 5-minute presentation explaining what your team did.
+
+### Questions:
+
+Gulls spend a considerable amount of their time incubating on their eggs, however, once their chicks are born, they tend to stand up alert around their chicks during daylight. Their posture while incubating and taking care of their chicks are different. 
+1. First I want to know whether I can identify the following behaviours using the movement data: incubating, up_alert, and not on nest. 
+2. I would also like to calculate the proportion of time they spent incubating.
+3. Knowing that the last time that this bird was observed incubating was July 2nd, I want to see if it's possible to differentiate the two stages of its life using pitch (i.e., when they have eggs and are incubating vs when they have chicks and are no longer incubating).
+
+This data may need a hierarchical model, as the GPS data is collected at a different temporal scale than the accelerometer data.
